@@ -525,8 +525,8 @@ void write_tree_with_inverters(Node* root, FILE* out, bool binary_mode) {
             fwrite(&label, sizeof(int), 1, out);
             fwrite(&cap, sizeof(double), 1, out);
         } else {
-            std::cout << "Leaf detected: " << std::endl
-                      << root->label() << " " <<  root->cap() << " " << std::endl;
+            // std::cout << "Leaf detected: " << std::endl
+            //           << root->label() << " " <<  root->cap() << " " << std::endl;
 
             fprintf(out, "%d(%.10le)\n", root->label(), root->cap());
         }
@@ -550,9 +550,9 @@ void write_tree_with_inverters(Node* root, FILE* out, bool binary_mode) {
             fwrite(&right_len, sizeof(double), 1, out);
             fwrite(&k, sizeof(int), 1, out);
         } else {
-            std::cout << "Non-leaf detected: " << std::endl
-                    << root->left_len() << " " <<  root->right_len() << " " << root->k() << std::endl
-                    << root->left() << " " << root->right() << std::endl;
+            // std::cout << "Non-leaf detected: " << std::endl
+            //         << root->left_len() << " " <<  root->right_len() << " " << root->k() << std::endl
+            //         << root->left() << " " << root->right() << std::endl;
             fprintf(out, "(%.10le %.10le %d)\n", 
                     root->left_len(), 
                     root->right_len(),

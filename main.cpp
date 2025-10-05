@@ -130,7 +130,7 @@ int main(int argc, char * argv[]) {
     std::cout << "****************************\n";
     // Pre-order with inverters
     std::cout << "Pre-order traversal of the modified tree:\n";
-    preorder(root, stdout);
+    // preorder(root, stdout);
     std::cout << "****************************\n";
     fclose(ttopoOut);
 
