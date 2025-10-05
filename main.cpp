@@ -56,10 +56,10 @@ int main(int argc, char * argv[]) {
     // =========================
     // Output 1: pre-order text
     // =========================
-    std::cout << "Pre-order traversal of the input tree:\n";
+    printf("Pre-order traversal of the input tree:\n");
     preorder(root, preOut);
     fclose(preOut);
-    std::cout << "****************************\n";
+    printf("****************************\n");
 
     // =========================
     // Prepare parameters (inv, wire) for Output 2
@@ -76,29 +76,29 @@ int main(int argc, char * argv[]) {
     fclose(invIn);
     fclose(wireIn);
     // Print parameters
-    std::cout << "Inverter parameters:\n";
-    std::cout << "  C_in  = " << C_in << "\n";
-    std::cout << "  C_out = " << C_out << "\n";
-    std::cout << "  R_inv = " << R_inv << "\n";
-    std::cout << "Wire parameters:\n";
-    std::cout << "  r = " << r << "\n";
-    std::cout << "  c = " << c << "\n";
-    std::cout << "****************************\n";
+    printf("Inverter parameters:\n");
+    printf("  C_in  = %.10le\n", C_in);
+    printf("  C_out = %.10le\n", C_out);
+    printf("  R_inv = %.10le\n", R_inv);
+    printf("Wire parameters:\n");
+    printf("  r = %.10le\n", r);
+    printf("  c = %.10le\n", c);
+    printf("****************************\n");
     // =========================
     // Output 2: Elmore delays (binary)
     // =========================
     // Build c' (local/lumped caps), then c_downstream, then t_j
-    std::cout << "Calculating Elmore delays...\n";
+    printf("Calculating Elmore delays...\n");
 
-    std::cout << "  Building c'...\n";
+    printf("  Building c'...\n");
     build_c_prime(root, C_out, r, c, /*is_root=*/true);
-    std::cout << "****************************\n";
-    std::cout << "  Calculating downstream capacitances...\n";
+    printf("****************************\n");
+    printf("  Calculating downstream capacitances...\n");
     dp_downstream(root);
-    std::cout << "****************************\n";
-    std::cout << "  Calculating Elmore delays...\n";
+    printf("****************************\n");
+    printf("  Calculating Elmore delays...\n");
     dp_delay(root, R_inv, r, elmoreOut);
-    std::cout << "****************************\n";
+    printf("****************************\n");
     fclose(elmoreOut);
     printf("\n========== INVERTER INSERTION ==========\n");
     NodeResult result = insert_inverters_bottom_up(root, R_inv, r, c, C_out, T_max,true);
@@ -125,13 +125,13 @@ int main(int argc, char * argv[]) {
     build_tree_with_inverters(root);
 
 
-    std::cout << "Post-order traversal of the modified tree:\n";
+    printf("Post-order traversal of the modified tree:\n");
     write_tree_with_inverters(root, ttopoOut, /*binary_mode=*/false);
-    std::cout << "****************************\n";
+    printf("****************************\n");
     // Pre-order with inverters
-    std::cout << "Pre-order traversal of the modified tree:\n";
+    printf("Pre-order traversal of the modified tree:\n");
     // preorder(root, stdout);
-    std::cout << "****************************\n";
+    printf("****************************\n");
     fclose(ttopoOut);
 
     delete root;
