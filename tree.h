@@ -32,7 +32,7 @@ void dp_delay (Node * root, double Rb,double re,FILE * out);
 NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c, 
                                       double Co, double T_constraint, bool is_root);
 int calculate_segments(double edge_len, double C_down, double delay_down,
-                      double Rb, double r, double c, double T_constraint);
+                      double Rb, double r, double c, double Co, double T_constraint);
 void build_tree_with_inverters(Node* node);
 Node* build_inverter_chain(Node* downstream, double seg_len, int num_inverters);
 void write_tree_with_inverters(Node* root, FILE* out, bool binary_mode);

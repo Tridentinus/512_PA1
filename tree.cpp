@@ -305,10 +305,9 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
                "CONSTRAINT VIOLATED - need inverter/segmentation");
         
         int left_segs = calculate_segments(node->left_len(), CL, left.max_delay,
-                                          Rb, r, c, T_constraint);
+                                          Rb, r, c, Co,T_constraint);
         int right_segs = calculate_segments(node->right_len(), CR, right.max_delay,
-                                           Rb, r, c, T_constraint);
-        
+                                           Rb, r, c, Co,T_constraint);
         if (left_segs < 0 || right_segs < 0) {
             printf("  -> INFEASIBLE\n");
             result.max_delay = HUGE_VAL;
@@ -390,51 +389,54 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
     return result;
 }
 int calculate_segments(double edge_len, double C_down, double delay_down,
-                      double Rb, double r, double c, double T_constraint) {
-    printf("  [SEGMENT] Calculating segments:\n");
-    printf("  [SEGMENT]   edge_len = %.3le\n", edge_len);
-    printf("  [SEGMENT]   C_down = %.3le\n", C_down);
-    printf("  [SEGMENT]   delay_down = %.3le\n", delay_down);
-    printf("  [SEGMENT]   T_constraint = %.3le\n", T_constraint);
+                      double Rb, double r, double c, double Co, double T_constraint) {
+    printf("  [SEGMENT] Calculating segments (QUADRATIC SOLUTION):\n");
     
-    if (edge_len <= 0) {
-        printf("  [SEGMENT]   edge_len <= 0, returning 1 segment\n");
-        return 1;
-    }
+    if (edge_len <= 0) return 1;
     
-    // Available delay for this edge
-    double available = T_constraint - delay_down;
-    printf("  [SEGMENT]   available = %.3le - %.3le = %.3le\n", 
-           T_constraint, delay_down, available);
+    double T_available = T_constraint - delay_down;
+    double driver_term = Rb * (Co + C_down);
     
-    if (available <= Rb * C_down) {
-        printf("  [SEGMENT]   INFEASIBLE: available (%.3le) <= Rb*C_down (%.3le)\n",
-               available, Rb * C_down);
+    printf("  [SEGMENT]   T_available = %.3le - %.3le = %.3le\n", 
+           T_constraint, delay_down, T_available);
+    printf("  [SEGMENT]   Driver term = Rb*(Co + C_down) = %.3le\n", driver_term);
+    
+    if (T_available <= driver_term) {
+        printf("  [SEGMENT]   INFEASIBLE: T_available <= driver term\n");
         return -1;
     }
     
-    // Max length per segment
-    double denominator = Rb * c / 2.0 + r * C_down;
-    double max_len = (available - Rb * C_down) / denominator;
+    // Quadratic: (r*c/2)*L'^2 + (Rb*c + r*C_down)*L' - [T_available - driver_term] = 0
+    double a = r * c / 2.0;
+    double b = Rb * c + r * C_down;
+    double c_const = -(T_available - driver_term);
     
-    printf("  [SEGMENT]   max_len = (%.3le - %.3le) / (%.3le * %.3le / 2 + %.3le * %.3le)\n",
-           available, Rb * C_down, Rb, c, r, C_down);
-    printf("  [SEGMENT]   max_len = %.3le / %.3le = %.3le\n",
-           available - Rb * C_down, denominator, max_len);
+    printf("  [SEGMENT]   Quadratic coefficients: a=%.3le, b=%.3le, c=%.3le\n", a, b, c_const);
     
-    if (max_len <= 0) {
-        printf("  [SEGMENT]   INFEASIBLE: max_len <= 0\n");
+    double discriminant = b*b - 4*a*c_const;
+    printf("  [SEGMENT]   Discriminant = %.3le\n", discriminant);
+    
+    if (discriminant < 0) {
+        printf("  [SEGMENT]   INFEASIBLE: negative discriminant\n");
         return -1;
     }
     
-    int segments = (int)ceil(edge_len / max_len);
-    printf("  [SEGMENT]   segments = ceil(%.3le / %.3le) = %d\n",
-           edge_len, max_len, segments);
+    // Take positive root
+    double L_prime = (-b + sqrt(discriminant)) / (2*a);
+    printf("  [SEGMENT]   Max segment length L' = %.3le\n", L_prime);
     
-    return segments > 0 ? segments : 1;
+    if (L_prime <= 0) {
+        printf("  [SEGMENT]   INFEASIBLE: L' <= 0\n");
+        return -1;
+    }
+    
+    int k = (int)ceil(edge_len / L_prime);
+    printf("  [SEGMENT]   Segments needed k = ceil(%.3le / %.3le) = %d\n", 
+           edge_len, L_prime, k);
+    
+    return k;
 }
 
-// Build the actual tree with inverter chains
 void build_tree_with_inverters(Node* node) {
     if (node->leaf()) {
         printf("  [BUILD] Leaf node %d - no modifications\n", node->label());
