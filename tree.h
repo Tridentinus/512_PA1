@@ -14,7 +14,8 @@ typedef struct
 typedef struct {
     double max_delay;     // Maximum delay through this subtree
     double total_cap;     // Total capacitance (downstream)
-    int needs_inverter;   // Whether inverter needed at this node
+    int min_stages;       // Minimum stages in subtree
+    int needs_inverter;   // -1=infeasible, 0=no inv, 1=has inv
 } NodeResult;
 
 NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c, 
@@ -27,8 +28,9 @@ double recur_downstream(Node * node);
 void dp_downstream(Node * root);
 void recur_delay(Node * node, double pDelay, double pResistance,double r,FILE* out);
 void dp_delay (Node * root, double Rb,double re,FILE * out);
+// tree.h - add is_root parameter
 NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c, 
-                                      double Co, double T_constraint);
+                                      double Co, double T_constraint, bool is_root);
 int calculate_segments(double edge_len, double C_down, double delay_down,
                       double Rb, double r, double c, double T_constraint);
 void build_tree_with_inverters(Node* node);

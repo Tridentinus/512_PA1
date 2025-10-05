@@ -100,29 +100,30 @@ int main(int argc, char * argv[]) {
     dp_delay(root, R_inv, r, elmoreOut);
     std::cout << "****************************\n";
     fclose(elmoreOut);
-    NodeResult root_result = insert_inverters_bottom_up(root, R_inv, r, c, C_out, T_max);
+    printf("\n========== INVERTER INSERTION ==========\n");
+    NodeResult result = insert_inverters_bottom_up(root, R_inv, r, c, C_out, T_max,true);
 
-    // Check root properties
-    printf("  Root max_delay (w/o driver): %.3le\n", root_result.max_delay);
-    printf("  Root total_cap: %.3le\n", root_result.total_cap);
-    printf("  Root needs_inverter: %d\n", root_result.needs_inverter);
-
-    if (root_result.needs_inverter == 1) {
-    // Root already has inverter and max_delay is the stage delay
-    if (root_result.max_delay > T_max) {
-        fprintf(stderr, "No feasible solution\n");
+    if (result.needs_inverter < 0) {
+        printf("\n========== INFEASIBLE ==========\n");
+        fprintf(stderr, "No feasible solution for time constraint %.3le\n", T_max);
+        // Create empty files
+        FILE* f3 = fopen(argv[7], "w");
+        if (f3) fclose(f3);
+        FILE* f4 = fopen(argv[8], "wb");
+        if (f4) fclose(f4);
+        delete root;
         return EXIT_SUCCESS;
     }
-    } else {
-        // Root doesn't have inverter yet - need to add driver
-        double root_delay = R_inv * (root_result.total_cap + C_out) + root_result.max_delay;
-        if (root_delay > T_max) {
-            fprintf(stderr, "No feasible solution\n");
-            return EXIT_SUCCESS;
-        }
-    }
 
+    printf("\n========== ROOT ANALYSIS ==========\n");
+    printf("Root stages: %d\n", result.min_stages);
+    printf("Root max delay: %.3le\n", result.max_delay);
+
+
+
+    printf("\n========== BUILDING TREE WITH INVERTERS ==========\n");
     build_tree_with_inverters(root);
+
 
     std::cout << "Post-order traversal of the modified tree:\n";
     write_tree_with_inverters(root, ttopoOut, /*binary_mode=*/false);
