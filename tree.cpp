@@ -236,7 +236,7 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
         NodeResult result;
         result.max_delay = 0.0;
         result.total_cap = node->cap();
-        result.min_stages = 0;  // Leaves don't have inverters
+        result.min_stages = 0;
         result.needs_inverter = 0;
         printf("  -> Returning: delay=%.3le, cap=%.3le, stages=%d\n\n",
                result.max_delay, result.total_cap, result.min_stages);
@@ -276,7 +276,7 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
     printf("  Child delays: left=%.3le, right=%.3le\n", left.max_delay, right.max_delay);
     printf("  Child stages: left=%d, right=%d\n", left.min_stages, right.min_stages);
     
-    // Delay WITHOUT inverter at this node (just wire delay)
+    // Wire delay (no inverter at this node)
     double delay_left_wire = RA_left * (CL + CA_left/2.0) + left.max_delay;
     double delay_right_wire = RA_right * (CR + CA_right/2.0) + right.max_delay;
     double max_delay_wire = (delay_left_wire > delay_right_wire) ? 
@@ -300,26 +300,49 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
     
     // Decision: do we NEED an inverter at this node?
     if (max_delay_inv > T_constraint || is_root) {
-        // Need inverter either due to timing or because this is root (always has driver)
         printf("  -> %s\n", is_root ? "ROOT always has inverter" : 
                "CONSTRAINT VIOLATED - need inverter/segmentation");
         
-        int left_segs = calculate_segments(node->left_len(), CL, left.max_delay,
-                                          Rb, r, c, Co,T_constraint);
-        int right_segs = calculate_segments(node->right_len(), CR, right.max_delay,
-                                           Rb, r, c, Co,T_constraint);
-        if (left_segs < 0 || right_segs < 0) {
-            printf("  -> INFEASIBLE\n");
-            result.max_delay = HUGE_VAL;
-            result.min_stages = -1;
-            result.needs_inverter = -1;
-            return result;
+        int left_segs = 1;
+        int right_segs = 1;
+        
+        // Only calculate segments for branches that actually violate
+        if (delay_left_inv > T_constraint) {
+            printf("  -> LEFT exceeds constraint - calculating segments\n");
+            left_segs = calculate_segments(node->left_len(), CL, left.max_delay,
+                                          Rb, r, c, Co, T_constraint);
+            if (left_segs < 0) {
+                printf("  -> LEFT EDGE INFEASIBLE\n");
+                result.max_delay = HUGE_VAL;
+                result.min_stages = -1;
+                result.needs_inverter = -1;
+                return result;
+            }
+            printf("  -> Left needs %d segments\n", left_segs);
+        } else {
+            printf("  -> LEFT OK with 1 segment\n");
+        }
+        
+        if (delay_right_inv > T_constraint) {
+            printf("  -> RIGHT exceeds constraint - calculating segments\n");
+            right_segs = calculate_segments(node->right_len(), CR, right.max_delay,
+                                           Rb, r, c, Co, T_constraint);
+            if (right_segs < 0) {
+                printf("  -> RIGHT EDGE INFEASIBLE\n");
+                result.max_delay = HUGE_VAL;
+                result.min_stages = -1;
+                result.needs_inverter = -1;
+                return result;
+            }
+            printf("  -> Right needs %d segments\n", right_segs);
+        } else {
+            printf("  -> RIGHT OK with 1 segment\n");
         }
         
         printf("  -> Initial segmentation: left=%d, right=%d\n", left_segs, right_segs);
         
         // Stages: child stages + edge inverters + this node's inverter
-        int left_stages = left.min_stages + left_segs;  // left_segs includes node inverter
+        int left_stages = left.min_stages + left_segs;
         int right_stages = right.min_stages + right_segs;
         
         printf("  -> Stage count: left=%d, right=%d\n", left_stages, right_stages);
@@ -330,12 +353,12 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
             if (left_stages < right_stages) {
                 left_segs++;
                 left_stages++;
+                printf("     Adjusted: left_segs=%d stages=%d\n", left_segs, left_stages);
             } else {
                 right_segs++;
                 right_stages++;
+                printf("     Adjusted: right_segs=%d stages=%d\n", right_segs, right_stages);
             }
-            printf("     Adjusted: left_segs=%d stages=%d, right_segs=%d stages=%d\n",
-                   left_segs, left_stages, right_segs, right_stages);
         }
         
         // Root parity fix
@@ -351,15 +374,18 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
         
         node->set_left_segments(left_segs);
         node->set_right_segments(right_segs);
-        node->set_k(1);  // This node HAS an inverter
+        node->set_k(1);
         
-        // Recalculate delay
+        // Recalculate delay with final segmentation
         double seg_left_len = node->left_len() / left_segs;
         double seg_right_len = node->right_len() / right_segs;
         
-        delay_left_inv = Rb * (CL + c * seg_left_len/2.0) + r * seg_left_len * CL + left.max_delay;
-        delay_right_inv = Rb * (CR + c * seg_right_len/2.0) + r * seg_right_len * CR + right.max_delay;
-        max_delay_inv = (delay_left_inv > delay_right_inv) ? delay_left_inv : delay_right_inv;
+        delay_left_inv = Rb * (CL + c * seg_left_len/2.0) + 
+                        r * seg_left_len * CL + left.max_delay;
+        delay_right_inv = Rb * (CR + c * seg_right_len/2.0) + 
+                         r * seg_right_len * CR + right.max_delay;
+        max_delay_inv = (delay_left_inv > delay_right_inv) ? 
+                       delay_left_inv : delay_right_inv;
         
         printf("  -> Final delay: %.3le\n", max_delay_inv);
         
@@ -368,14 +394,12 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
         result.needs_inverter = 1;
         
     } else {
-        // Don't need inverter - constraint satisfied without it
         printf("  -> Constraint satisfied - NO inverter needed at this node (k=0)\n");
         
         node->set_left_segments(1);
         node->set_right_segments(1);
-        node->set_k(0);  // NO inverter at this node
+        node->set_k(0);
         
-        // Propagate wire delay and child stages (no additional stage added here)
         result.max_delay = max_delay_wire;
         result.min_stages = (left.min_stages > right.min_stages) ? 
                            left.min_stages : right.min_stages;
@@ -388,6 +412,8 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
     printf("\n");
     return result;
 }
+
+
 int calculate_segments(double edge_len, double C_down, double delay_down,
                       double Rb, double r, double c, double Co, double T_constraint) {
     printf("  [SEGMENT] Calculating segments (QUADRATIC SOLUTION):\n");
@@ -436,6 +462,9 @@ int calculate_segments(double edge_len, double C_down, double delay_down,
     
     return k;
 }
+
+
+
 
 void build_tree_with_inverters(Node* node) {
     if (node->leaf()) {
