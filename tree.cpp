@@ -55,7 +55,7 @@ void build_c_prime(Node * node, double Co, double r, double c,bool is_root= fals
   }  
   if (node->leaf()) {
     //printf("Leaf detected:\n");
-      // printf("  Starting Cap: %.10le\n", node->c_prime());
+      ////printf("  Starting Cap: %.10le\n", node->c_prime());
       node->add_c_prime(node->cap());
     //printf("  Sink Cap: %.10le\n", node->cap());
     //printf("  Ending Cap: %.10le\n", node->c_prime());
@@ -64,7 +64,7 @@ void build_c_prime(Node * node, double Co, double r, double c,bool is_root= fals
 
         } else{
           //printf("Non-leaf detected:\n");
-            // printf("  Starting Cap: %.10le\n", node->c_prime());
+            ////printf("  Starting Cap: %.10le\n", node->c_prime());
 
 
             if (has_left(node)) {      
@@ -232,7 +232,7 @@ void dp_delay (Node * root, double Rb,double re, FILE * out) {
 
 
 NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c, 
-                                      double Co, double T_constraint, bool is_root) {
+                                      double Co, double Cb, double T_constraint, bool is_root) {
     if (node->leaf()) {
       //printf("[ANALYZE] Leaf node %d: cap=%.3le\n", node->label(), node->cap());
         NodeResult result;
@@ -250,11 +250,11 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
     
     // Process children
   //printf("  -> Processing left child...\n");
-    NodeResult left = insert_inverters_bottom_up(node->left(), Rb, r, c, Co, T_constraint, false);
+    NodeResult left = insert_inverters_bottom_up(node->left(), Rb, r, c, Co, Cb, T_constraint, false);
     
   //printf("  -> Processing right child...\n");
-    NodeResult right = insert_inverters_bottom_up(node->right(), Rb, r, c, Co, T_constraint, false);
-    
+    NodeResult right = insert_inverters_bottom_up(node->right(), Rb, r, c, Co, Cb, T_constraint, false);
+
     if (left.needs_inverter < 0 || right.needs_inverter < 0) {
       //printf("  -> Child is infeasible, propagating failure\n");
         NodeResult result;
@@ -307,7 +307,7 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
         if (delay_left_inv > T_constraint) {
           //printf("  -> LEFT exceeds constraint - calculating segments\n");
             left_segs = calculate_segments(node->left_len(), CL, left.max_delay,
-                                          Rb, r, c, Co, T_constraint);
+                                          Rb, r, c, Co, Cb, T_constraint);
             if (left_segs < 0) {
               //printf("  -> LEFT EDGE INFEASIBLE\n");
                 result.max_delay = HUGE_VAL;
@@ -323,7 +323,7 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
         if (delay_right_inv > T_constraint) {
           //printf("  -> RIGHT exceeds constraint - calculating segments\n");
             right_segs = calculate_segments(node->right_len(), CR, right.max_delay,
-                                           Rb, r, c, Co, T_constraint);
+                                           Rb, r, c, Co, Cb, T_constraint);
             if (right_segs < 0) {
               //printf("  -> RIGHT EDGE INFEASIBLE\n");
                 result.max_delay = HUGE_VAL;
@@ -409,53 +409,66 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
 
 
 int calculate_segments(double edge_len, double C_down, double delay_down,
-                      double Rb, double r, double c, double Co, double T_constraint) {
-  //printf("  [SEGMENT] Calculating segments (QUADRATIC SOLUTION):\n");
+                      double Rb, double r, double c, double Co, double Cb,
+                      double T_constraint) {
+   //printf("  [SEGMENT] Calculating segments:\n");
     
     if (edge_len <= 0) return 1;
     
-    double T_available = T_constraint - delay_down;
-    double driver_term = Rb * (Co + C_down);
+    // ===== FIRST SEGMENT (drives C_down) =====
+    double T_avail_first = T_constraint - delay_down;
+    double driver_first = Rb * (Co + C_down);
     
-  //printf("  [SEGMENT]   T_available = %.3le - %.3le = %.3le\n", T_constraint, delay_down, T_available);
-  //printf("  [SEGMENT]   Driver term = Rb*(Co + C_down) = %.3le\n", driver_term);
+   //printf("  [SEGMENT] FIRST segment (drives C_down=%.3le):\n", C_down);
+   //printf("  [SEGMENT]   T_avail = %.3le\n", T_avail_first);
     
-    if (T_available <= driver_term) {
-      //printf("  [SEGMENT]   INFEASIBLE: T_available <= driver term\n");
+    if (T_avail_first <= driver_first) {
+       //printf("  [SEGMENT]   INFEASIBLE\n");
         return -1;
     }
     
-    // Quadratic: (r*c/2)*L'^2 + (Rb*c + r*C_down)*L' - [T_available - driver_term] = 0
-    double a = r * c / 2.0;
-    double b = Rb * c + r * C_down;
-    double c_const = -(T_available - driver_term);
+    double a1 = r * c / 2.0;
+    double b1 = Rb * c + r * C_down;
+    double c1 = -(T_avail_first - driver_first);
+    double disc1 = b1*b1 - 4*a1*c1;
     
-  //printf("  [SEGMENT]   Quadratic coefficients: a=%.3le, b=%.3le, c=%.3le\n", a, b, c_const);
+    if (disc1 < 0) return -1;
     
-    double discriminant = b*b - 4*a*c_const;
-  //printf("  [SEGMENT]   Discriminant = %.3le\n", discriminant);
+    double L_max_first = (-b1 + sqrt(disc1)) / (2*a1);
+    int k_first = (int)ceil(edge_len / L_max_first);
     
-    if (discriminant < 0) {
-      //printf("  [SEGMENT]   INFEASIBLE: negative discriminant\n");
+   //printf("  [SEGMENT]   L_max = %.3le, k_first = %d\n", L_max_first, k_first);
+    
+    // ===== SUBSEQUENT SEGMENTS (drive Cb) =====
+    double T_avail_sub = T_constraint;  // No accumulated delay
+    double driver_sub = Rb * (Co + Cb);
+    
+   //printf("  [SEGMENT] SUBSEQUENT segments (drive Cb=%.3le):\n", Cb);
+   //printf("  [SEGMENT]   T_avail = %.3le\n", T_avail_sub);
+    
+    if (T_avail_sub <= driver_sub) {
+       //printf("  [SEGMENT]   INFEASIBLE\n");
         return -1;
     }
     
-    // Take positive root
-    double L_prime = (-b + sqrt(discriminant)) / (2*a);
-  //printf("  [SEGMENT]   Max segment length L' = %.3le\n", L_prime);
+    double a2 = r * c / 2.0;
+    double b2 = Rb * c + r * Cb;
+    double c2 = -(T_avail_sub - driver_sub);
+    double disc2 = b2*b2 - 4*a2*c2;
     
-    if (L_prime <= 0) {
-      //printf("  [SEGMENT]   INFEASIBLE: L' <= 0\n");
-        return -1;
-    }
+    if (disc2 < 0) return -1;
     
-    int k = (int)ceil(edge_len / L_prime);
-  //printf("  [SEGMENT]   Segments needed k = ceil(%.3le / %.3le) = %d\n", edge_len, L_prime, k);
+    double L_max_sub = (-b2 + sqrt(disc2)) / (2*a2);
+    int k_sub = (int)ceil(edge_len / L_max_sub);
+    
+   //printf("  [SEGMENT]   L_max = %.3le, k_sub = %d\n", L_max_sub, k_sub);
+    
+    // Take maximum (most conservative)
+    int k = (k_first > k_sub) ? k_first : k_sub;
+   //printf("  [SEGMENT]   Final k = max(%d, %d) = %d\n", k_first, k_sub, k);
     
     return k;
 }
-
-
 
 
 void build_tree_with_inverters(Node* node) {
@@ -542,8 +555,8 @@ void write_tree_with_inverters(Node* root, FILE* out, bool binary_mode) {
             fwrite(&label, sizeof(int), 1, out);
             fwrite(&cap, sizeof(double), 1, out);
         } else {
-            // printf("Leaf detected:\n");
-            // printf("  %d %.10le\n", root->label(), root->cap());
+            ////printf("Leaf detected:\n");
+            ////printf("  %d %.10le\n", root->label(), root->cap());
 
             fprintf(out, "%d(%.10le)\n", root->label(), root->cap());
         }

@@ -101,7 +101,7 @@ int main(int argc, char * argv[]) {
     printf("****************************\n");
     fclose(elmoreOut);
     printf("\n========== INVERTER INSERTION ==========\n");
-    NodeResult result = insert_inverters_bottom_up(root, R_inv, r, c, C_out, T_max,true);
+    NodeResult result = insert_inverters_bottom_up(root, R_inv, r, c, C_out, C_in, T_max,true);
 
     if (result.needs_inverter < 0) {
         printf("\n========== INFEASIBLE ==========\n");
@@ -133,6 +133,9 @@ int main(int argc, char * argv[]) {
     // preorder(root, stdout);
     printf("****************************\n");
     fclose(ttopoOut);
+    write_tree_with_inverters(root, btopoOut, /*binary_mode=*/true);
+    fclose(btopoOut);
+    
 
     delete root;
     return EXIT_SUCCESS;
