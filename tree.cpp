@@ -85,13 +85,13 @@ void build_c_prime_dp(Node * root, double Co, double c, bool is_root) {
               double LCe = c * node->left_len();
               node->add_c_prime(LCe/2);
               node->left()->add_c_prime(LCe/2);
-              stack.push(node->left());  // Push for traversal
+              stack.push(node->left()); 
           }
           if (has_right(node)) {
               double RCe = c * node->right_len();
               node->add_c_prime(RCe/2);
               node->right()->add_c_prime(RCe/2);
-              stack.push(node->right());  // Push for traversal
+              stack.push(node->right());  
           }
         }
     }
@@ -184,23 +184,16 @@ void dp_delay (Node * root, double Rb,double re, FILE * out) {
 }
 
 NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c, double Co, double Cb, double T_constraint, bool is_root) {
-    if (node->leaf()) {
-        NodeResult result;
-        result.max_delay = 0.0;
-        result.total_cap = node->cap();
-        result.min_stages = 0;
-        result.needs_inverter = 0;
-        return result;
+    
+  if (node->leaf()) {
+        return {0.0, node->cap(), 0, true};
     }
+    
     NodeResult left = insert_inverters_bottom_up(node->left(), Rb, r, c, Co, Cb, T_constraint, false);
     NodeResult right = insert_inverters_bottom_up(node->right(), Rb, r, c, Co, Cb, T_constraint, false);
-    if (left.needs_inverter < 0 || right.needs_inverter < 0) {
-        NodeResult result;
-        result.max_delay = HUGE_VAL;
-        result.total_cap = 0.0;
-        result.min_stages = -1;
-        result.needs_inverter = -1;
-        return result;
+    
+    if (left.feasible == false || right.feasible == false) {
+        return {HUGE_VAL, 0.0, -1, false};
     }
     
     double CL = left.total_cap;
@@ -210,38 +203,38 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
     double RA_left = r * node->left_len();
     double RA_right = r * node->right_len();
 
-    double delay_left_wire = RA_left * (CL + Cl_L/2.0) + left.max_delay;
-    double delay_right_wire = RA_right * (CR + Cl_R/2.0) + right.max_delay;
-    double max_delay_wire = (delay_left_wire > delay_right_wire) ? delay_left_wire : delay_right_wire;
+    double delay_left_pre = RA_left * (CL + Cl_L/2.0) + left.max_delay;
+    double delay_right_pre = RA_right * (CR + Cl_R/2.0) + right.max_delay;
+    double max_delay_pre = (delay_left_pre > delay_right_pre) ? delay_left_pre : delay_right_pre;
 
-    double delay_left_inv = Rb * (Co + CL + Cl_L) + RA_left * (Cl_L/2.0 + CL) + left.max_delay;
-    double delay_right_inv = Rb * (Co + CR + Cl_R) + RA_right * (Cl_R/2.0 + CR) + right.max_delay;
-    double max_delay_inv = (delay_left_inv > delay_right_inv) ? delay_left_inv : delay_right_inv;
+    double delay_left_post = Rb * (Co + CL + Cl_L) + RA_left * (Cl_L/2.0 + CL) + left.max_delay;
+    double delay_right_post = Rb * (Co + CR + Cl_R) + RA_right * (Cl_R/2.0 + CR) + right.max_delay;
+    double max_delay_post = (delay_left_post > delay_right_post) ? delay_left_post : delay_right_post;
 
     NodeResult result;
     result.total_cap = CL + CR + Cl_L + Cl_R;
 
-    if (max_delay_inv > T_constraint || is_root) {
+    if (max_delay_post > T_constraint || is_root) {
         
       int left_segs = 1;
       int right_segs = 1;
       
-      if (delay_left_inv > T_constraint) {
+      if (delay_left_post > T_constraint) {
         left_segs = calculate_segments(node->left_len(), CL, left.max_delay,Rb, r, c, Co, Cb, T_constraint);
         if (left_segs < 0) {
             result.max_delay = HUGE_VAL;
             result.min_stages = -1;
-            result.needs_inverter = -1;
+            result.feasible = false;
             return result;
         }
       }
-      
-      if (delay_right_inv > T_constraint) {
+
+      if (delay_right_post > T_constraint) {
         right_segs = calculate_segments(node->right_len(), CR, right.max_delay,Rb, r, c, Co, Cb, T_constraint);
         if (right_segs < 0) {
             result.max_delay = HUGE_VAL;
             result.min_stages = -1;
-            result.needs_inverter = -1;
+            result.feasible = false;
             return result;
         }
       } 
@@ -272,23 +265,22 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
       double seg_left_len = node->left_len() / left_segs;
       double seg_right_len = node->right_len() / right_segs;
       
-      delay_left_inv = Rb * (Co + CL + c * seg_left_len) + r * seg_left_len * (c * seg_left_len/2.0 + CL) + left.max_delay;
-                      
-      delay_right_inv = Rb * (Co + CR + c * seg_right_len) + r * seg_right_len * (c * seg_right_len/2.0 + CR) + right.max_delay;
-      max_delay_inv = (delay_left_inv > delay_right_inv) ? delay_left_inv : delay_right_inv;
+      delay_left_post = Rb * (Co + CL + c * seg_left_len) + r * seg_left_len * (c * seg_left_len/2.0 + CL) + left.max_delay;
 
-      result.max_delay = max_delay_inv;
+      delay_right_post = Rb * (Co + CR + c * seg_right_len) + r * seg_right_len * (c * seg_right_len/2.0 + CR) + right.max_delay;
+      max_delay_post = (delay_left_post > delay_right_post) ? delay_left_post : delay_right_post;
+
+      result.max_delay = max_delay_post;
       result.min_stages = (left_stages > right_stages) ? left_stages : right_stages;
-      result.needs_inverter = 1;
+      result.feasible = true;
     } else {
       node->set_left_segments(1);
       node->set_right_segments(1);
       node->set_k(0);
       
-      result.max_delay = max_delay_wire;
-      result.min_stages = (left.min_stages > right.min_stages) ? 
-                          left.min_stages : right.min_stages;
-      result.needs_inverter = 0;
+      result.max_delay = max_delay_pre;
+      result.min_stages = (left.min_stages > right.min_stages) ? left.min_stages : right.min_stages;
+      result.feasible = true;
     }
     
     return result;

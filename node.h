@@ -21,6 +21,7 @@ private:
     double c_downstream_;
     double elmore_delay_;
 
+    // Inverter insertion properties
     int k_;
     int left_segments_;
     int right_segments_;

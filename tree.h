@@ -13,10 +13,10 @@ typedef struct
 
 // tree.h
 typedef struct {
-    double max_delay;     // Maximum delay through this subtree
-    double total_cap;     // Total capacitance (downstream)
-    int min_stages;       // Minimum stages in subtree
-    int needs_inverter;   // -1=infeasible, 0=no inv, 1=has inv
+    double max_delay;     
+    double total_cap;     
+    int min_stages;      
+    bool feasible;   
 } NodeResult;
 struct ParityCheckResult {
     bool all_even;
