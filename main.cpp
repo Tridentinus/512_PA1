@@ -67,7 +67,7 @@ int main(int argc, char * argv[]) {
     fclose(elmoreOut);
     NodeResult result = insert_inverters_bottom_up(root, R_inv, r, c, C_out, C_in, T_max,true);
 
-    if (result.needs_inverter < 0) {
+    if (!result.feasible) {
         fprintf(stderr, "No feasible solution for time constraint %.3le\n", T_max);
         FILE* f3 = fopen(argv[7], "w");
         if (f3) fclose(f3);
