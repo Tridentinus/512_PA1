@@ -87,7 +87,42 @@ void build_c_prime(Node * node, double Co, double r, double c,bool is_root= fals
     }
 
 }
-
+void build_c_prime_dp(Node * root, double Co, double r, double c, bool is_root) {
+    if (!root) return;
+    
+    // Pre-order traversal using stack
+    std::stack<Node*> stack;
+    stack.push(root);
+    
+    // Add root's output capacitance
+    if (is_root) {
+        root->add_c_prime(Co);
+    }
+    
+    while (!stack.empty()) {
+        Node* node = stack.top();
+        stack.pop();
+        
+        if (node->leaf()) {
+            // Add sink capacitance
+            node->add_c_prime(node->cap());
+        } else {
+            // Process internal node - add wire capacitances
+            if (has_left(node)) {
+                double LCe = c * node->left_len();
+                node->add_c_prime(LCe/2);
+                node->left()->add_c_prime(LCe/2);
+                stack.push(node->left());  // Push for traversal
+            }
+            if (has_right(node)) {
+                double RCe = c * node->right_len();
+                node->add_c_prime(RCe/2);
+                node->right()->add_c_prime(RCe/2);
+                stack.push(node->right());  // Push for traversal
+            }
+        }
+    }
+}
 double recur_downstream(Node * node) {
   if (!node) return 0.0;
 
@@ -115,7 +150,6 @@ double recur_downstream(Node * node) {
   node->set_c_downstream(S);
   return S;
 }
-
 
 void dp_downstream(Node * root) {
   if (!root) return;
@@ -225,11 +259,6 @@ void dp_delay (Node * root, double Rb,double re, FILE * out) {
         }
   }
 }
-
-// Node * recursive_inv(Node * origin, double Rb, double r, double c, double T_max, int parent_stages) {
-//   SubtreeInfo 
-// }
-
 
 NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c, 
                                       double Co, double Cb, double T_constraint, bool is_root) {
@@ -469,7 +498,6 @@ int calculate_segments(double edge_len, double C_down, double delay_down,
     
     return k;
 }
-
 
 void build_tree_with_inverters(Node* node) {
     if (node->leaf()) {

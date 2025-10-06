@@ -64,7 +64,7 @@ run-valgrind: all
 	@echo "Running $(TARGET) under valgrind with TIME=$(TIME), FAKE=$(FAKE), NAME=$(NAME)"
 	mkdir -p out
 	# Run memcheck
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --log-file=$(LOG) \
+	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --log-file=$(LOG) \
 		./$(TARGET) $(TIME) $(INV) $(WIRE) $(INPUT) $(OUT_PRE) $(OUT_ELM) $(OUT_TTOPO) $(OUT_BTOPO)
 	# Run callgrind for profiling (optional)
 	valgrind --tool=callgrind --callgrind-out-file=$(CALL) ./$(TARGET) $(TIME) $(INV) $(WIRE) $(INPUT) $(OUT_PRE) $(OUT_ELM) $(OUT_TTOPO) $(OUT_BTOPO)

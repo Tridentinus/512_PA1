@@ -91,7 +91,8 @@ int main(int argc, char * argv[]) {
     printf("Calculating Elmore delays...\n");
 
     printf("  Building c'...\n");
-    build_c_prime(root, C_out, r, c, /*is_root=*/true);
+    // build_c_prime(root, C_out, r, c, /*is_root=*/true);
+    build_c_prime_dp(root, C_out, r, c, /*is_root=*/true);
     printf("****************************\n");
     printf("  Calculating downstream capacitances...\n");
     dp_downstream(root);
@@ -111,6 +112,8 @@ int main(int argc, char * argv[]) {
         if (f3) fclose(f3);
         FILE* f4 = fopen(argv[8], "wb");
         if (f4) fclose(f4);
+        fclose(ttopoOut);
+        fclose(btopoOut);
         delete root;
         return EXIT_SUCCESS;
     }
