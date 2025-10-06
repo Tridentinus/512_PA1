@@ -346,8 +346,6 @@ void build_tree_with_inverters(Node* node) {
       
       node->set_left(chain_top);
       node->set_left_len(seg_len);
-    } else {
-      return;
     }
     
     if (right_segs > 1) {
@@ -355,9 +353,9 @@ void build_tree_with_inverters(Node* node) {
       Node* chain_top = build_inverter_chain(node->right(), seg_len, right_segs - 1);
       node->set_right(chain_top);
       node->set_right_len(seg_len);
-    } else {
-      return;
-    }
+    } 
+
+    return;
 }
 
 Node* build_inverter_chain(Node* downstream, double seg_len, int num_inverters) {    

@@ -6,9 +6,9 @@ MODE ?= release
 
 # Flags for each mode
 ifeq ($(MODE),debug)
-    CXXFLAGS = -std=c++11 -Wall -Wextra -g
+    CXXFLAGS = -std=c++11 -pedantic -Wvla -Wall -Wshadow -g
 else ifeq ($(MODE),release)
-    CXXFLAGS = -std=c++11 -Wall -Wextra -O3
+    CXXFLAGS = -std=c++11 -pedantic -Wvla -Wall -Wshadow -O3
 endif
 
 # Target executable
