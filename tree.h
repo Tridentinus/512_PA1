@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <stack>
+#include <vector>
 
 typedef struct
 {
@@ -17,10 +18,15 @@ typedef struct {
     int min_stages;       // Minimum stages in subtree
     int needs_inverter;   // -1=infeasible, 0=no inv, 1=has inv
 } NodeResult;
-
-NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c, 
-                                      double Co, double T_constraint);
-
+struct ParityCheckResult {
+    bool all_even;
+    int min_stages;
+    int max_stages;
+    bool all_same;
+};
+ParityCheckResult validate_leaf_parity(Node* root);
+void check_leaf_stages_helper(Node* node, int current_stages, 
+                              std::vector<std::pair<int,int>>& leaf_stages);
 Node * buildTree(FILE * in);
 void preorder(Node * root, FILE * out);
 void build_c_prime(Node * node, double Co, double r, double c,bool is_root);

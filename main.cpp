@@ -140,6 +140,15 @@ int main(int argc, char * argv[]) {
     fclose(btopoOut);
     
 
+
+    // Validate parity
+    ParityCheckResult parity = validate_leaf_parity(root);
+
+    if (!parity.all_even) {
+        fprintf(stderr, "WARNING: Parity validation failed!\n");
+    }
+
+
     delete root;
     return EXIT_SUCCESS;
 }
