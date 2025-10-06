@@ -7,7 +7,6 @@ Node * buildTree(FILE * in) {
 
     while (fgets(buf, sizeof(buf),in)) {
         if (buf[0] == '(') {
-          //printf("Non-leaf detected: %s", buf);
             double l,r;
             sscanf(buf,"(%le %le)",&l,&r);
             Node * right = st.top(); st.pop();
@@ -16,7 +15,6 @@ Node * buildTree(FILE * in) {
             st.push(node);
         }
         else {
-          //printf("Leaf detected: %s", buf);
             int label;
             double cap;
             sscanf(buf,"%d(%le)",&label,&cap);
@@ -31,16 +29,11 @@ Node * buildTree(FILE * in) {
 void preorder(Node * root, FILE *out) {
     if (!root) return;
         if (!root->leaf()) {
-          //printf("Non-leaf detected:\n");
-          //printf("  left_len=%.10le right_len=%.10le\n", root->left_len(), root->right_len());
         fprintf(out, "(%.10le %.10le)\n",root->left_len(),root->right_len());
         preorder(root->left(),out);
         preorder(root->right(),out);
     } else{
-          //printf("Leaf detected:\n");
-          //printf("  label=%d cap=%.10le\n", root->label(), root->cap());
         fprintf(out, "%d(%.10le)\n",root->label(),root->cap());
-
     }
 }
 
@@ -48,55 +41,34 @@ bool has_left(const Node*n) {return n->left() && n->left_len() >=0;};
 
 bool has_right(const Node*n) {return n->right() && n->right_len() >=0;};
 
-void build_c_prime(Node * node, double Co, double r, double c,bool is_root= false) {
+void build_c_prime(Node * node, double Co, double c,bool is_root) {
   if (is_root) {
       node->add_c_prime(Co);
-    //printf("ROOT\n");
-      
   }  
   if (node->leaf()) {
-    //printf("Leaf detected:\n");
-      ////printf("  Starting Cap: %.10le\n", node->c_prime());
-      node->add_c_prime(node->cap());
-    //printf("  Sink Cap: %.10le\n", node->cap());
-    //printf("  Ending Cap: %.10le\n", node->c_prime());
-
-
-
-        } else{
-          //printf("Non-leaf detected:\n");
-            ////printf("  Starting Cap: %.10le\n", node->c_prime());
-
-
-            if (has_left(node)) {      
-                double LCe = c * node->left_len();
-                node->add_c_prime(LCe/2);
-              //printf("  Left: (%.10le * %.10le)/2 = %.10le\n", c, node->left_len(), LCe/2);
-                node->left()->add_c_prime(LCe/2);
-            }
-            if (has_right(node)) {
-                double RCe = c * node->right_len();
-                node->add_c_prime(RCe/2);
-              //printf("  Right: (%.10le * %.10le)/2 = %.10le\n", c, node->right_len(), RCe/2);
-                node->right()->add_c_prime(RCe/2);
-            }
-
-
-          //printf("  Ending Cap: %.10le\n", node->c_prime());
-            if (has_left(node)) {  build_c_prime(node->left(),Co,r,c);};
-            if (has_right(node)) {  build_c_prime(node->right(),Co,r,c);};
+    node->add_c_prime(node->cap());
+  } else {
+    if (has_left(node)) {
+        double LCe = c * node->left_len();
+        node->add_c_prime(LCe/2);
+        node->left()->add_c_prime(LCe/2);
     }
-
+    if (has_right(node)) {
+        double RCe = c * node->right_len();
+        node->add_c_prime(RCe/2);
+        node->right()->add_c_prime(RCe/2);
+    }
+    if (has_left(node)) {  build_c_prime(node->left(),Co,c);};
+    if (has_right(node)) {  build_c_prime(node->right(),Co,c);};
+    }
 }
 
 void build_c_prime_dp(Node * root, double Co, double c, bool is_root) {
     if (!root) return;
     
-    // Pre-order traversal using stack
     std::stack<Node*> stack;
     stack.push(root);
-    
-    // Add root's output capacitance
+
     if (is_root) {
         root->add_c_prime(Co);
     }
@@ -106,49 +78,32 @@ void build_c_prime_dp(Node * root, double Co, double c, bool is_root) {
         stack.pop();
         
         if (node->leaf()) {
-            // Add sink capacitance
             node->add_c_prime(node->cap());
-        } else {
-            // Process internal node - add wire capacitances
-            if (has_left(node)) {
-                double LCe = c * node->left_len();
-                node->add_c_prime(LCe/2);
-                node->left()->add_c_prime(LCe/2);
-                stack.push(node->left());  // Push for traversal
-            }
-            if (has_right(node)) {
-                double RCe = c * node->right_len();
-                node->add_c_prime(RCe/2);
-                node->right()->add_c_prime(RCe/2);
-                stack.push(node->right());  // Push for traversal
-            }
+        } 
+        else {
+          if (has_left(node)) {
+              double LCe = c * node->left_len();
+              node->add_c_prime(LCe/2);
+              node->left()->add_c_prime(LCe/2);
+              stack.push(node->left());  // Push for traversal
+          }
+          if (has_right(node)) {
+              double RCe = c * node->right_len();
+              node->add_c_prime(RCe/2);
+              node->right()->add_c_prime(RCe/2);
+              stack.push(node->right());  // Push for traversal
+          }
         }
     }
 }
 
 double recur_downstream(Node * node) {
   if (!node) return 0.0;
-
   double S = node->c_prime();
-
   if (!node->leaf()) {
     double lDown = recur_downstream(node->left());
     double rDown = recur_downstream(node->right());
-      //printf("Non-leaf detected:\n");
-      //printf("  Local Cap: %.10le\n", node->c_prime());
-      //printf("  Left Cap: %.10le\n", lDown);
-      //printf("  Right Cap: %.10le\n", rDown);
     S += lDown + rDown;
-
-      //printf("  Total Cap: %.10le\n", S);
-
-
-  }
-  else {
-  //printf("Leaf detected:\n");
-  //printf("  Local Cap: %.10le\n", node->c_prime());
-
-
   }
   node->set_c_downstream(S);
   return S;
@@ -162,7 +117,6 @@ void dp_downstream(Node * root) {
   while (!stack.empty()) {
     Node * u = stack.top(); stack.pop();
     post.push(u);
-
     if (!u->leaf()) {
       stack.push(u->left());
       stack.push(u->right());
@@ -171,23 +125,12 @@ void dp_downstream(Node * root) {
 
   while (!post.empty()) {
     Node * v = post.top(); post.pop();
-
-        double S = v->c_prime();
-
-        if (!v->leaf()) {
-            double lDown = v->left()->c_downstream();
-            double rDown = v->right()->c_downstream();
-          //printf("Non-leaf detected:\n");
-          //printf("  Local Cap: %.10le\n", v->c_prime());
-          //printf("  Left Cap: %.10le\n", lDown);
-          //printf("  Right Cap: %.10le\n", rDown);
-            S += lDown + rDown;
-
-          //printf("  Total Cap: %.10le\n", S);
-        } else {
-          //printf("Leaf detected:\n");
-          //printf("  Local Cap: %.10le\n", v->c_prime());
-        }
+    double S = v->c_prime();
+    if (!v->leaf()) {
+        double lDown = v->left()->c_downstream();
+        double rDown = v->right()->c_downstream();
+        S += lDown + rDown;
+    }
     v->set_c_downstream(S);
   }
 
@@ -196,28 +139,15 @@ void dp_downstream(Node * root) {
 void recur_delay(Node * node, double pDelay, double pResistance,double r,FILE*out) {
   double t_node = pDelay + (pResistance * node->c_downstream());
   node->set_elmore_delay(t_node);
-  
   if (!node->leaf()) {
-  //printf("Non-leaf detected:\n");
-  //printf("  Downstream Cap: %.10le\n", node->c_downstream());
-  //printf("  Resistance from Parent: %.10le\n", pResistance);
-  //printf("  Delay from Parent: %.10le\n", pDelay);
-  //printf("  Total Delay: %.10le\n", t_node);
-  //printf("  Resistance to Left: %.10le\n", r * node->left_len());
-  //printf("  Resistance to Right: %.10le\n", r * node->right_len());
-
     recur_delay(node->left(),t_node, r* node->left_len(), r,out);
     recur_delay(node->right(),t_node, r* node->right_len(), r,out);
-  } else {
-  //printf("Leaf detected:\n");
-  //printf("  Downstream Cap: %.10le\n", node->c_downstream());
-  //printf("  Resistance from Parent: %.10le\n", pResistance);
-  //printf("  Delay from Parent: %.10le\n", pDelay);
-  //printf("  Total Delay: %.10le\n", t_node);
-              int l[1] = {node->label()};
-              fwrite(l,sizeof(int),1,out);
-              double t[1] = {t_node};
-              fwrite(t,sizeof(double),1,out);
+  } 
+  else {
+    int l[1] = {node->label()};
+    fwrite(l,sizeof(int),1,out);
+    double t[1] = {t_node};
+    fwrite(t,sizeof(double),1,out);
   }
 }
 
@@ -241,53 +171,30 @@ void dp_delay (Node * root, double Rb,double re, FILE * out) {
       double acc_r = acc + node->right_len()*re * r->c_downstream();
       st.push({r,acc_r});
       Node*l = node->left();
-      double acc_l = acc + node->left_len()*re * l->c_downstream();
-      st.push({l,acc_l});
+      double acc_l = acc + node->left_len()*re * l->c_downstream();      st.push({l,acc_l});
 
-  //printf("Non-leaf detected:\n");
-  //printf("  Downstream Cap: %.10le\n", node->c_downstream());
-  //printf("  Total Delay: %.10le\n", driver + acc);
-  //printf("  Resistance to Left: %.10le\n", re * node->left_len());
-  //printf("  Resistance to Right: %.10le\n", re * node->right_len());
     }
-        else {
-          //printf("Leaf detected:\n");
-          //printf("  Downstream Cap: %.10le\n", node->c_downstream());
-          //printf("  Total Delay: %.10le\n", driver + acc);
-
-                            int l[1] = {node->label()};
-                            fwrite(l,sizeof(int),1,out);
-                            double t[1] = {node->elmore_delay()};
-                            fwrite(t,sizeof(double),1,out);
-        }
+    else {
+      int l[1] = {node->label()};
+      fwrite(l,sizeof(int),1,out);
+      double t[1] = {node->elmore_delay()};
+      fwrite(t,sizeof(double),1,out);
+    }
   }
 }
 
 NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c, double Co, double Cb, double T_constraint, bool is_root) {
     if (node->leaf()) {
-      //printf("[ANALYZE] Leaf node %d: cap=%.3le\n", node->label(), node->cap());
         NodeResult result;
         result.max_delay = 0.0;
         result.total_cap = node->cap();
         result.min_stages = 0;
         result.needs_inverter = 0;
-      //printf("  -> Returning: delay=%.3le, cap=%.3le, stages=%d\n\n",result.max_delay, result.total_cap, result.min_stages);
         return result;
     }
-    
-  //printf("\n[ANALYZE] %s node:\n", is_root ? "ROOT" : "Internal");
-  //printf("  Left edge length: %.3le\n", node->left_len());
-  //printf("  Right edge length: %.3le\n", node->right_len());
-    
-    // Process children
-  //printf("  -> Processing left child...\n");
     NodeResult left = insert_inverters_bottom_up(node->left(), Rb, r, c, Co, Cb, T_constraint, false);
-    
-  //printf("  -> Processing right child...\n");
     NodeResult right = insert_inverters_bottom_up(node->right(), Rb, r, c, Co, Cb, T_constraint, false);
-
     if (left.needs_inverter < 0 || right.needs_inverter < 0) {
-      //printf("  -> Child is infeasible, propagating failure\n");
         NodeResult result;
         result.max_delay = HUGE_VAL;
         result.total_cap = 0.0;
@@ -298,397 +205,209 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
     
     double CL = left.total_cap;
     double CR = right.total_cap;
-    double CA_left = c * node->left_len();
-    double CA_right = c * node->right_len();
+    double Cl_L = c * node->left_len();
+    double Cl_R = c * node->right_len();
     double RA_left = r * node->left_len();
     double RA_right = r * node->right_len();
-    
-  //printf("  Capacitances: CL=%.3le, CR=%.3le, CA_left=%.3le, CA_right=%.3le\n", CL, CR, CA_left, CA_right);
-  //printf("  Child delays: left=%.3le, right=%.3le\n", left.max_delay, right.max_delay);
-  //printf("  Child stages: left=%d, right=%d\n", left.min_stages, right.min_stages);
-    
-    // Wire delay (no inverter at this node)
-    double delay_left_wire = RA_left * (CL + CA_left/2.0) + left.max_delay;
-    double delay_right_wire = RA_right * (CR + CA_right/2.0) + right.max_delay;
-    double max_delay_wire = (delay_left_wire > delay_right_wire) ? 
-                            delay_left_wire : delay_right_wire;
-    
-  //printf("  Wire delay (no inverter): left=%.3le, right=%.3le, max=%.3le\n", delay_left_wire, delay_right_wire, max_delay_wire);
-    
-    // Delay WITH inverter at this node
-    // Delay WITH inverter at this node (correct pi-model)
-    double delay_left_inv = Rb * (Co + CL + CA_left) + RA_left * (CA_left/2.0 + CL) + left.max_delay;
-    double delay_right_inv = Rb * (Co + CR + CA_right) + RA_right * (CA_right/2.0 + CR) + right.max_delay;
+
+    double delay_left_wire = RA_left * (CL + Cl_L/2.0) + left.max_delay;
+    double delay_right_wire = RA_right * (CR + Cl_R/2.0) + right.max_delay;
+    double max_delay_wire = (delay_left_wire > delay_right_wire) ? delay_left_wire : delay_right_wire;
+
+    double delay_left_inv = Rb * (Co + CL + Cl_L) + RA_left * (Cl_L/2.0 + CL) + left.max_delay;
+    double delay_right_inv = Rb * (Co + CR + Cl_R) + RA_right * (Cl_R/2.0 + CR) + right.max_delay;
     double max_delay_inv = (delay_left_inv > delay_right_inv) ? delay_left_inv : delay_right_inv;
 
-  //printf("  With inverter at node: left=%.3le, right=%.3le, max=%.3le\n", delay_left_inv, delay_right_inv, max_delay_inv);
-  //printf("  Constraint: %.3le\n", T_constraint);
-    
     NodeResult result;
-    result.total_cap = CL + CR + CA_left + CA_right;
-    
-    // Decision: do we NEED an inverter at this node?
+    result.total_cap = CL + CR + Cl_L + Cl_R;
+
     if (max_delay_inv > T_constraint || is_root) {
-      //printf("  -> %s\n", is_root ? "ROOT always has inverter" :  "CONSTRAINT VIOLATED - need inverter/segmentation");
         
-        int left_segs = 1;
-        int right_segs = 1;
-        
-        // Only calculate segments for branches that actually violate
-        if (delay_left_inv > T_constraint) {
-          //printf("  -> LEFT exceeds constraint - calculating segments\n");
-            left_segs = calculate_segments(node->left_len(), CL, left.max_delay,
-                                          Rb, r, c, Co, Cb, T_constraint);
-            if (left_segs < 0) {
-              //printf("  -> LEFT EDGE INFEASIBLE\n");
-                result.max_delay = HUGE_VAL;
-                result.min_stages = -1;
-                result.needs_inverter = -1;
-                return result;
-            }
-          //printf("  -> Left needs %d segments\n", left_segs);
-        } else {
-          //printf("  -> LEFT OK with 1 segment\n");
+      int left_segs = 1;
+      int right_segs = 1;
+      
+      if (delay_left_inv > T_constraint) {
+        left_segs = calculate_segments(node->left_len(), CL, left.max_delay,Rb, r, c, Co, Cb, T_constraint);
+        if (left_segs < 0) {
+            result.max_delay = HUGE_VAL;
+            result.min_stages = -1;
+            result.needs_inverter = -1;
+            return result;
         }
-        
-        if (delay_right_inv > T_constraint) {
-          //printf("  -> RIGHT exceeds constraint - calculating segments\n");
-            right_segs = calculate_segments(node->right_len(), CR, right.max_delay,
-                                           Rb, r, c, Co, Cb, T_constraint);
-            if (right_segs < 0) {
-              //printf("  -> RIGHT EDGE INFEASIBLE\n");
-                result.max_delay = HUGE_VAL;
-                result.min_stages = -1;
-                result.needs_inverter = -1;
-                return result;
-            }
-          //printf("  -> Right needs %d segments\n", right_segs);
-        } else {
-          //printf("  -> RIGHT OK with 1 segment\n");
+      }
+      
+      if (delay_right_inv > T_constraint) {
+        right_segs = calculate_segments(node->right_len(), CR, right.max_delay,Rb, r, c, Co, Cb, T_constraint);
+        if (right_segs < 0) {
+            result.max_delay = HUGE_VAL;
+            result.min_stages = -1;
+            result.needs_inverter = -1;
+            return result;
         }
-        
-      //printf("  -> Initial segmentation: left=%d, right=%d\n", left_segs, right_segs);
-        
-        // Stages: child stages + edge inverters + this node's inverter
-        int left_stages = left.min_stages + left_segs;
-        int right_stages = right.min_stages + right_segs;
-        
-      //printf("  -> Stage count: left=%d, right=%d\n", left_stages, right_stages);
-        
-        // Fix parity
-        if ((left_stages % 2) != (right_stages % 2)) {
-          //printf("  -> PARITY MISMATCH\n");
-            if (left_stages < right_stages) {
-                left_segs++;
-                left_stages++;
-              //printf("     Adjusted: left_segs=%d stages=%d\n", left_segs, left_stages);
-            } else {
-                right_segs++;
-                right_stages++;
-              //printf("     Adjusted: right_segs=%d stages=%d\n", right_segs, right_stages);
-            }
-        }
-        
-        // Root parity fix
-        if (is_root && (left_stages % 2 != 0)) {
-          //printf("  -> ROOT has ODD stages - adding to both\n");
+      } 
+      
+      int left_stages = left.min_stages + left_segs;
+      int right_stages = right.min_stages + right_segs;
+      if ((left_stages % 2) != (right_stages % 2)) {
+        if (left_stages < right_stages) {
             left_segs++;
-            right_segs++;
             left_stages++;
+        } else {
+            right_segs++;
             right_stages++;
-          //printf("     Final: left_segs=%d stages=%d, right_segs=%d stages=%d\n",left_segs, left_stages, right_segs, right_stages);
         }
-        
-        node->set_left_segments(left_segs);
-        node->set_right_segments(right_segs);
-        node->set_k(1);
-        
-        // Recalculate delay with final segmentation
-        double seg_left_len = node->left_len() / left_segs;
-        double seg_right_len = node->right_len() / right_segs;
-        
-        // After segmentation - also needs correction
-        delay_left_inv = Rb * (Co + CL + c * seg_left_len) + 
-                        r * seg_left_len * (c * seg_left_len/2.0 + CL) + 
-                        left.max_delay;
-                        
-        delay_right_inv = Rb * (Co + CR + c * seg_right_len) + 
-                        r * seg_right_len * (c * seg_right_len/2.0 + CR) + 
-                        right.max_delay;
-        max_delay_inv = (delay_left_inv > delay_right_inv) ? 
-                       delay_left_inv : delay_right_inv;
-        
-      //printf("  -> Final delay: %.3le\n", max_delay_inv);
-        
-        result.max_delay = max_delay_inv;
-        result.min_stages = (left_stages > right_stages) ? left_stages : right_stages;
-        result.needs_inverter = 1;
-        
+      }
+      
+      if (is_root && (left_stages % 2 != 0)) {
+        left_segs++;
+        right_segs++;
+        left_stages++;
+        right_stages++;
+      }
+      
+      node->set_left_segments(left_segs);
+      node->set_right_segments(right_segs);
+      node->set_k(1);
+      
+      double seg_left_len = node->left_len() / left_segs;
+      double seg_right_len = node->right_len() / right_segs;
+      
+      delay_left_inv = Rb * (Co + CL + c * seg_left_len) + r * seg_left_len * (c * seg_left_len/2.0 + CL) + left.max_delay;
+                      
+      delay_right_inv = Rb * (Co + CR + c * seg_right_len) + r * seg_right_len * (c * seg_right_len/2.0 + CR) + right.max_delay;
+      max_delay_inv = (delay_left_inv > delay_right_inv) ? delay_left_inv : delay_right_inv;
+
+      result.max_delay = max_delay_inv;
+      result.min_stages = (left_stages > right_stages) ? left_stages : right_stages;
+      result.needs_inverter = 1;
     } else {
-      //printf("  -> Constraint satisfied - NO inverter needed at this node (k=0)\n");
-        
-        node->set_left_segments(1);
-        node->set_right_segments(1);
-        node->set_k(0);
-        
-        result.max_delay = max_delay_wire;
-        result.min_stages = (left.min_stages > right.min_stages) ? 
-                           left.min_stages : right.min_stages;
-        result.needs_inverter = 0;
-      //printf("  -> Propagating: delay=%.3le, stages=%d\n", result.max_delay, result.min_stages);
+      node->set_left_segments(1);
+      node->set_right_segments(1);
+      node->set_k(0);
+      
+      result.max_delay = max_delay_wire;
+      result.min_stages = (left.min_stages > right.min_stages) ? 
+                          left.min_stages : right.min_stages;
+      result.needs_inverter = 0;
     }
     
-  //printf("\n");
     return result;
 }
 
 int calculate_segments(double edge_len, double C_down, double delay_down,double Rb, double r, double c, double Co, double Cb, double T_constraint) {
-   //printf("  [SEGMENT] Calculating segments:\n");
-    
-    if (edge_len <= 0) return 1;
-    
-    // ===== FIRST SEGMENT (drives C_down) =====
-    double T_avail_first = T_constraint - delay_down;
-    double driver_first = Rb * (Co + C_down);
-    
-   //printf("  [SEGMENT] FIRST segment (drives C_down=%.3le):\n", C_down);
-   //printf("  [SEGMENT]   T_avail = %.3le\n", T_avail_first);
-    
-    if (T_avail_first <= driver_first) {
-       //printf("  [SEGMENT]   INFEASIBLE\n");
-        return -1;
-    }
-    
-    double a1 = r * c / 2.0;
-    double b1 = Rb * c + r * C_down;
-    double c1 = -(T_avail_first - driver_first);
-    double disc1 = b1*b1 - 4*a1*c1;
-    
-    if (disc1 < 0) return -1;
-    
-    double L_max_first = (-b1 + sqrt(disc1)) / (2*a1);
-    int k_first = (int)ceil(edge_len / L_max_first);
-    
-   //printf("  [SEGMENT]   L_max = %.3le, k_first = %d\n", L_max_first, k_first);
-    
-    // ===== SUBSEQUENT SEGMENTS (drive Cb) =====
-    double T_avail_sub = T_constraint;  // No accumulated delay
-    double driver_sub = Rb * (Co + Cb);
-    
-   //printf("  [SEGMENT] SUBSEQUENT segments (drive Cb=%.3le):\n", Cb);
-   //printf("  [SEGMENT]   T_avail = %.3le\n", T_avail_sub);
-    
-    if (T_avail_sub <= driver_sub) {
-       //printf("  [SEGMENT]   INFEASIBLE\n");
-        return -1;
-    }
-    
-    double a2 = r * c / 2.0;
-    double b2 = Rb * c + r * Cb;
-    double c2 = -(T_avail_sub - driver_sub);
-    double disc2 = b2*b2 - 4*a2*c2;
-    
-    if (disc2 < 0) return -1;
-    
-    double L_max_sub = (-b2 + sqrt(disc2)) / (2*a2);
-    int k_sub = (int)ceil(edge_len / L_max_sub);
-    
-   //printf("  [SEGMENT]   L_max = %.3le, k_sub = %d\n", L_max_sub, k_sub);
-    
-    // Take maximum (most conservative)
-    int k = (k_first > k_sub) ? k_first : k_sub;
-   //printf("  [SEGMENT]   Final k = max(%d, %d) = %d\n", k_first, k_sub, k);
-    
-    return k;
+  if (edge_len <= 0) return 1;
+  
+  double T_avail_first = T_constraint - delay_down;
+  double driver_first = Rb * (Co + C_down);
+  
+  if (T_avail_first <= driver_first) {
+      return -1;
+  }
+  
+  double a1 = r * c / 2.0;
+  double b1 = Rb * c + r * C_down;
+  double c1 = -(T_avail_first - driver_first);
+  double disc1 = b1*b1 - 4*a1*c1;
+  
+  if (disc1 < 0) return -1;
+  
+  double L_max_first = (-b1 + sqrt(disc1)) / (2*a1);
+  int k_first = (int)ceil(edge_len / L_max_first);
+  
+  double T_avail_sub = T_constraint;  
+  double driver_sub = Rb * (Co + Cb);
+
+  if (T_avail_sub <= driver_sub) {
+      return -1;
+  }
+  
+  double a2 = r * c / 2.0;
+  double b2 = Rb * c + r * Cb;
+  double c2 = -(T_avail_sub - driver_sub);
+  double disc2 = b2*b2 - 4*a2*c2;
+  
+  if (disc2 < 0) return -1;
+  
+  double L_max_sub = (-b2 + sqrt(disc2)) / (2*a2);
+  int k_sub = (int)ceil(edge_len / L_max_sub);
+  int k = (k_first > k_sub) ? k_first : k_sub;
+  
+  return k;
 }
 
 void build_tree_with_inverters(Node* node) {
     if (node->leaf()) {
-      //printf("  [BUILD] Leaf node %d - no modifications\n", node->label());
-        return;
+      return;
     }
-    
-  //printf("[BUILD] Processing internal node:\n");
-  //printf("  Left edge: len=%.3le, segments=%d\n",  node->left_len(), node->left_segments());
-  //printf("  Right edge: len=%.3le, segments=%d\n", node->right_len(), node->right_segments());
-    
-    // Process children first
-  //printf("  -> Recursing into left child...\n");
     build_tree_with_inverters(node->left());
     
     if (node->right()) {
-      //printf("  -> Recursing into right child...\n");
-        build_tree_with_inverters(node->right());
+      build_tree_with_inverters(node->right());
     }
     
-    // Insert inverter chains if needed
     int left_segs = node->left_segments();
     int right_segs = node->right_segments();
     
-    // Insert chain on left edge
     if (left_segs > 1) {
-      //printf("  -> INSERTING %d inverters on left edge\n", left_segs - 1);
-        double seg_len = node->left_len() / left_segs;
-      //printf("     Segment length: %.3le\n", seg_len);
-        
-        Node* chain_top = build_inverter_chain(node->left(), seg_len, left_segs - 1);
-        
-      //printf("     Old left child: %p\n", (void*)node->left());
-        node->set_left(chain_top);
-        node->set_left_len(seg_len);
-      //printf("     New left child (chain top): %p\n", (void*)node->left());
+      double seg_len = node->left_len() / left_segs;        
+      Node* chain_top = build_inverter_chain(node->left(), seg_len, left_segs - 1);
+      
+      node->set_left(chain_top);
+      node->set_left_len(seg_len);
     } else {
-      //printf("  -> No inverters needed on left edge\n");
+      return;
     }
     
-    // Insert chain on right edge
     if (right_segs > 1) {
-      //printf("  -> INSERTING %d inverters on right edge\n", right_segs - 1);
-        double seg_len = node->right_len() / right_segs;
-      //printf("     Segment length: %.3le\n", seg_len);
-        
-        Node* chain_top = build_inverter_chain(node->right(), seg_len, right_segs - 1);
-        
-      //printf("     Old right child: %p\n", (void*)node->right());
-        node->set_right(chain_top);
-        node->set_right_len(seg_len);
-      //printf("     New right child (chain top): %p\n", (void*)node->right());
+      double seg_len = node->right_len() / right_segs;        
+      Node* chain_top = build_inverter_chain(node->right(), seg_len, right_segs - 1);
+      node->set_right(chain_top);
+      node->set_right_len(seg_len);
     } else {
-      //printf("  -> No inverters needed on right edge\n");
+      return;
     }
-    
-  //printf("[BUILD] Done with this node\n\n");
 }
 
-Node* build_inverter_chain(Node* downstream, double seg_len, int num_inverters) {
-  //printf("     Building chain of %d inverters, seg_len=%.3le\n", num_inverters, seg_len);
-    
-    Node* current = downstream;
-    
-    for (int i = 0; i < num_inverters; i++) {
-        Node* inv = new Node(seg_len, -1.0, current, nullptr);
-        inv->set_k(1);
-      //printf("       Inverter %d created at %p -> downstream %p\n", i+1, (void*)inv, (void*)current);
-        current = inv;
-    }
-    
-  //printf("     Chain complete, returning top: %p\n", (void*)current);
-    return current;
+Node* build_inverter_chain(Node* downstream, double seg_len, int num_inverters) {    
+  Node* current = downstream;
+  for (int i = 0; i < num_inverters; i++) {
+    Node* inv = new Node(seg_len, -1.0, current, nullptr);
+    inv->set_k(1);
+    current = inv;
+  }
+  return current;
 }
 
 void write_tree_with_inverters(Node* root, FILE* out, bool binary_mode) {
-    if (!root) return;
-    
-    if (root->leaf()) {
-        if (binary_mode) {
-            int label = root->label();
-            double cap = root->cap();
-            fwrite(&label, sizeof(int), 1, out);
-            fwrite(&cap, sizeof(double), 1, out);
-        } else {
-            ////printf("Leaf detected:\n");
-            ////printf("  %d %.10le\n", root->label(), root->cap());
-
-            fprintf(out, "%d(%.10le)\n", root->label(), root->cap());
-        }
+  if (!root) return;
+  if (root->leaf()) {
+    if (binary_mode) {
+      int label = root->label();
+      double cap = root->cap();
+      fwrite(&label, sizeof(int), 1, out);
+      fwrite(&cap, sizeof(double), 1, out);
     } else {
-        // Post-order: children first
-        if (root->left()) {
-            write_tree_with_inverters(root->left(), out, binary_mode);
-        }
-        if (root->right() && root->right_len() >= 0) {
-            write_tree_with_inverters(root->right(), out, binary_mode);
-        }
-        
-        // Then write this node
-        if (binary_mode) {
-            int marker = -1;
-            double left_len = root->left_len();
-            double right_len = root->right_len();
-            int k = root->k();
-            fwrite(&marker, sizeof(int), 1, out);
-            fwrite(&left_len, sizeof(double), 1, out);
-            fwrite(&right_len, sizeof(double), 1, out);
-            fwrite(&k, sizeof(int), 1, out);
+      fprintf(out, "%d(%.10le)\n", root->label(), root->cap());
+    }
+  } else {
+      if (root->left()) {
+          write_tree_with_inverters(root->left(), out, binary_mode);
+      }
+      if (root->right() && root->right_len() >= 0) {
+          write_tree_with_inverters(root->right(), out, binary_mode);
+      }
+      
+      if (binary_mode) {
+          int marker = -1;
+          double left_len = root->left_len();
+          double right_len = root->right_len();
+          int k = root->k();
+          fwrite(&marker, sizeof(int), 1, out);
+          fwrite(&left_len, sizeof(double), 1, out);
+          fwrite(&right_len, sizeof(double), 1, out);
+          fwrite(&k, sizeof(int), 1, out);
     } else {
-      //printf("Non-leaf detected:\n");
-      //printf("  left_len=%.10le right_len=%.10le k=%d\n", root->left_len(), root->right_len(), root->k());
-      //printf("  left=%p right=%p\n", (void*)root->left(), (void*)root->right());
-        fprintf(out, "(%.10le %.10le %d)\n", 
-            root->left_len(), 
-            root->right_len(),
-            root->k());
+      fprintf(out, "(%.10le %.10le %d)\n", root->left_len(), root->right_len(),root->k());
     }
     }
-}
-
-
-// Add to tree.cpp
-void check_leaf_stages_helper(Node* node, int current_stages, 
-                              std::vector<std::pair<int,int>>& leaf_stages) {
-    if (!node) return;
-    
-    if (node->leaf()) {
-        // Record: (leaf_label, stages_to_reach)
-        leaf_stages.push_back({node->label(), current_stages});
-        return;
-    }
-    
-    // Add stage if this node has an inverter
-    int stages_here = current_stages + (node->k() > 0 ? 1 : 0);
-    
-    // Recurse
-    if (node->left()) {
-        check_leaf_stages_helper(node->left(), stages_here, leaf_stages);
-    }
-    if (node->right() && node->right_len() >= 0) {
-        check_leaf_stages_helper(node->right(), stages_here, leaf_stages);
-    }
-}
-
-ParityCheckResult validate_leaf_parity(Node* root) {
-  //printf("\n========== VALIDATING LEAF PARITY ==========\n");
-    
-    std::vector<std::pair<int,int>> leaf_stages;
-    check_leaf_stages_helper(root, 0, leaf_stages);
-    
-    ParityCheckResult result;
-    result.all_even = true;
-    result.all_same = true;
-    result.min_stages = HUGE_VAL;
-    result.max_stages = 0;
-    
-  //printf("Leaf stages:\n");
-    for (size_t i = 0; i < leaf_stages.size(); i++) {
-        int label = leaf_stages[i].first;
-        int stages = leaf_stages[i].second;
-        
-      //printf("  Leaf %d: %d stages (%s)\n", label, stages, (stages % 2 == 0) ? "EVEN - non-inverting" : "ODD - inverting");
-        
-        if (stages % 2 != 0) {
-            result.all_even = false;
-        }
-        
-        if (stages < result.min_stages) result.min_stages = stages;
-        if (stages > result.max_stages) result.max_stages = stages;
-    }
-    
-    if (result.min_stages != result.max_stages) {
-        result.all_same = false;
-    }
-    
-  //printf("\nSummary:\n");
-  //printf("  Min stages: %d\n", result.min_stages);
-  //printf("  Max stages: %d\n", result.max_stages);
-  //printf("  All leaves same stage count: %s\n", result.all_same ? "YES" : "NO");
-  //printf("  All leaves even (non-inverting): %s\n", result.all_even ? "YES ✓" : "NO ✗");
-    
-    if (result.all_even) {
-      //printf("\n✓ PARITY CHECK PASSED\n");
-    } else {
-      //printf("\n✗ PARITY CHECK FAILED - Some leaves are inverting!\n");
-    }
-  //printf("==========================================\n\n");
-    
-    return result;
 }

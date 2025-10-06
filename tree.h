@@ -29,7 +29,7 @@ void check_leaf_stages_helper(Node* node, int current_stages,
                               std::vector<std::pair<int,int>>& leaf_stages);
 Node * buildTree(FILE * in);
 void preorder(Node * root, FILE * out);
-void build_c_prime(Node * node, double Co, double r, double c,bool is_root);
+void build_c_prime(Node * node, double Co, double c,bool is_root= false);
 void build_c_prime_dp(Node * root, double Co, double c, bool is_root);
 double recur_downstream(Node * node);
 void dp_downstream(Node * root);
