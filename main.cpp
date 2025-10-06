@@ -92,7 +92,7 @@ int main(int argc, char * argv[]) {
 
     printf("  Building c'...\n");
     // build_c_prime(root, C_out, r, c, /*is_root=*/true);
-    build_c_prime_dp(root, C_out, r, c, /*is_root=*/true);
+    build_c_prime_dp(root, C_out, c, /*is_root=*/true);
     printf("****************************\n");
     printf("  Calculating downstream capacitances...\n");
     dp_downstream(root);

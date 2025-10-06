@@ -24,7 +24,7 @@ NodeResult insert_inverters_bottom_up(Node* node, double Rb, double r, double c,
 Node * buildTree(FILE * in);
 void preorder(Node * root, FILE * out);
 void build_c_prime(Node * node, double Co, double r, double c,bool is_root);
-void build_c_prime_dp(Node * root, double Co, double r, double c, bool is_root);
+void build_c_prime_dp(Node * root, double Co, double c, bool is_root);
 double recur_downstream(Node * node);
 void dp_downstream(Node * root);
 void recur_delay(Node * node, double pDelay, double pResistance,double r,FILE* out);
