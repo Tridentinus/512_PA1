@@ -11,9 +11,9 @@ int main(int argc, char * argv[]) {
     // argv[6] = out2: elmore (binary)
     // argv[7] = out3: ttopo (text)  -- will be empty for now
     // argv[8] = out4: btopo (binary) -- will be empty for now
-    if (argc != 9) return EXIT_FAILURE;
+    if (argc < 6) return EXIT_FAILURE;
 
-    const double T_max = atof(argv[1]);
+    // const double T_max = atof(argv[1]);
 
     FILE * invIn  = fopen(argv[2], "r");
     FILE * wireIn = fopen(argv[3], "r");
@@ -65,26 +65,6 @@ int main(int argc, char * argv[]) {
     dp_downstream(root);
     dp_delay(root, R_inv, r, elmoreOut);
     fclose(elmoreOut);
-    NodeResult result = insert_inverters_bottom_up(root, R_inv, r, c, C_out, C_in, T_max,true);
-
-    if (!result.feasible) {
-        fprintf(stderr, "No feasible solution for time constraint %.3le\n", T_max);
-        FILE* f3 = fopen(argv[7], "w");
-        if (f3) fclose(f3);
-        FILE* f4 = fopen(argv[8], "wb");
-        if (f4) fclose(f4);
-        fclose(ttopoOut);
-        fclose(btopoOut);
-        delete root;
-        return EXIT_SUCCESS;
-    }
-    build_tree_with_inverters(root);
-    write_tree_with_inverters(root, ttopoOut, false);
-    fclose(ttopoOut);
-    write_tree_with_inverters(root, btopoOut, true);
-    fclose(btopoOut);
-    
-
 
     delete root;
     return EXIT_SUCCESS;

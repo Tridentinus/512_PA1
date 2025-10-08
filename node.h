@@ -23,8 +23,6 @@ private:
 
     // Inverter insertion properties
     int k_;
-    int left_segments_;
-    int right_segments_;
 
 public:
     Node(int lbl,double c);
@@ -64,10 +62,7 @@ public:
 
     int k() const{return k_;};
     void set_k(int v) {k_ = v;};
-    int left_segments() const {return left_segments_;};
-    void set_left_segments(int v) {left_segments_ = v;};
-    int right_segments() const {return right_segments_;};
-    void set_right_segments(int v) {right_segments_ = v;};
+    
 
 };
 #endif
