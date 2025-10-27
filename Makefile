@@ -38,7 +38,7 @@ clean:
 #   make run TIME=30 FAKE=true NAME=3    # uses fake_inv.param/fake_wire.param and examples/3.txt
 #   make run TIME=30 FAKE=false NAME=3   # uses inv.param/wire.param and examples/3.txt
 # Defaults: TIME=30, FAKE=true, NAME=3
-TIME ?= 30
+TIME ?= 20
 FAKE ?= true
 NAME ?= 3
 

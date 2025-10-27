@@ -12,6 +12,8 @@ Node * buildTree(FILE * in) {
             Node * right = st.top(); st.pop();
             Node * left = st.top(); st.pop();
             Node * node = new Node(l,r,left,right);
+            left->set_parent(node, l);
+            right->set_parent(node, r);
             st.push(node);
         }
         else {
@@ -23,16 +25,20 @@ Node * buildTree(FILE * in) {
         }
     }
     Node * root = st.top();
+    root->set_parent(nullptr, 0.0);
     return root;
 }
 
 void preorder(Node * root, FILE *out) {
     if (!root) return;
-        if (!root->leaf()) {
+
+    if (!root->leaf()) {
+        printf("Internal node: left_len=%.10le, right_len=%.10le, parent_len=%.10le\n", root->left_len(), root->right_len(), root->parent_len());
         fprintf(out, "(%.10le %.10le)\n",root->left_len(),root->right_len());
         preorder(root->left(),out);
         preorder(root->right(),out);
     } else{
+        printf("Leaf node: label=%d, cap=%.10le, parent_len=%.10le\n", root->label(), root->cap(), root->parent_len());
         fprintf(out, "%d(%.10le)\n",root->label(),root->cap());
     }
 }
@@ -183,3 +189,356 @@ void dp_delay (Node * root, double Rb,double re, FILE * out) {
   }
 }
 
+// Helper to compute max distance for hypothetical check
+double compute_max_distance_hyp(double CT, double Tmax, double T_constraint, 
+                                double Rb, double r, double c, double Co) {
+    double a = r * c / 2.0;
+    double b = Rb * c + r * CT;
+    double c_coef = Rb * Co + Rb * CT + Tmax - T_constraint;
+    
+    double discriminant = b * b - 4.0 * a * c_coef;
+    
+    if (discriminant < 0) {
+        return 0.0;
+    }
+    
+    double L_max = (-b + sqrt(discriminant)) / (2.0 * a);
+    return (L_max > 0.0) ? L_max : 0.0;
+}
+
+// Insert single inverter between node and its parent
+Node* insert_inverter(Node* node, double L_max, double Rb, double r, double c, 
+                      double Co, double Cb, double Tb) {
+    double L_parent = node->parent_len();
+    Node* grandparent = node->parent();  // GET GRANDPARENT FIRST!
+    
+    // Create inverter node
+    Node* inv_node = new Node(L_max, -1.0, node, nullptr);
+    inv_node->set_k(1);
+    inv_node->set_parent(grandparent, L_parent - L_max);
+    
+    // Update node's parent
+    node->set_parent(inv_node, L_max);
+    
+    // Update grandparent's child pointer AND edge length
+    if (grandparent) {
+        if (grandparent->left() == node) {
+            grandparent->set_left(inv_node);
+            grandparent->set_left_len(L_parent - L_max);  // ADD THIS!
+        } else {
+            grandparent->set_right(inv_node);
+            grandparent->set_right_len(L_parent - L_max);  // ADD THIS!
+        }
+    }
+    
+    return inv_node;
+}
+
+// Insert repeater (2 inverters) between node and its parent
+std::pair<Node*, Node*> insert_repeater(Node* node, double L_max, 
+                                        double Rb, double r, double c, 
+                                        double Co, double Cb, double Tb) {
+    double L_parent = node->parent_len();
+    Node* grandparent = node->parent();  // GET GRANDPARENT FIRST!
+    
+    // Create first inverter (closer to node)
+    Node* inv1 = new Node(L_max, -1.0, node, nullptr);
+    inv1->set_k(1);
+    
+    // Create second inverter (closer to parent)
+    Node* inv2 = new Node(0.0, -1.0, inv1, nullptr);
+    inv2->set_k(1);
+    
+    // Setup connections
+    inv2->set_parent(grandparent, L_parent - L_max);
+    inv1->set_parent(inv2, 0.0);
+    node->set_parent(inv1, L_max);
+    
+    // Update grandparent's child pointer AND edge length
+    if (grandparent) {
+        if (grandparent->left() == node) {
+            grandparent->set_left(inv2);
+            grandparent->set_left_len(L_parent - L_max);  // ADD THIS!
+        } else {
+            grandparent->set_right(inv2);
+            grandparent->set_right_len(L_parent - L_max);  // ADD THIS!
+        }
+    }
+    
+    return {inv1, inv2};
+}
+
+// Insert inverter at top of child branch (for parity mismatch / root issues)
+Node* insert_inverter_on_child(Node* parent, int child_side,
+                                double Rb, double r, double c, 
+                                double Co, double Cb, double Tb) {
+    Node* child;
+    double edge_len;
+    
+    if (child_side == 0) {
+        child = parent->left();
+        edge_len = parent->left_len();
+    } else {
+        child = parent->right();
+        edge_len = parent->right_len();
+    }
+    
+    Node* inv_node = new Node(0.0, -1.0, child, nullptr);
+    inv_node->set_k(1);
+    inv_node->set_parent(parent, edge_len);
+    
+    child->set_parent(inv_node, 0.0);
+    
+    // Update parent's child pointer
+    if (child_side == 0) {
+        parent->set_left(inv_node);
+    } else {
+        parent->set_right(inv_node);
+    }
+    
+    return inv_node;
+}
+
+// Main recursive processing function
+void process_node(Node* node, double T_constraint, 
+                  double Rb, double r, double c, double Co, double Cb, double Tb) {
+    
+    if (!node) return;
+    
+    double CT_down, Tmax_down;
+    int parity_down;
+    
+    // ===== LEAF NODE =====
+    if (node->leaf()) {
+        CT_down = node->cap();
+        Tmax_down = 0.0;
+        parity_down = 1;  // Leaves start odd
+        
+        node->set_parity(parity_down);
+        
+        
+        
+        // Compute upstream state
+        double L_parent = node->parent_len();
+        node->set_c_upstream(CT_down + c * L_parent);
+        node->set_t_upstream(r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down);
+        
+        // Check hypothetical
+        double t_hyp = Rb * (Co + c * L_parent + CT_down) + 
+                       r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
+        
+        if (t_hyp > T_constraint) {
+            // Need inverter on edge to parent
+            double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, 
+                                                    Rb, r, c, Co);
+            
+            if (parity_down == 1) {
+                // Odd parity - single inverter
+                Node* inv = insert_inverter(node, L_max, Rb, r, c, Co, Cb, Tb);
+                process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb);
+            } else {
+                // Even parity - repeater
+                auto [inv1, inv2] = insert_repeater(node, L_max, Rb, r, c, Co, Cb, Tb);
+                process_node(inv1, T_constraint, Rb, r, c, Co, Cb, Tb);
+                process_node(inv2, T_constraint, Rb, r, c, Co, Cb, Tb);
+            }
+        }
+        
+        return;
+    }
+    
+    // ===== INVERTER NODE =====
+    if (node->k() > 0) {
+        // Process child first
+        process_node(node->left(), T_constraint, Rb, r, c, Co, Cb, Tb);
+        
+        // Compute inverter output
+        CT_down = Cb * node->k();
+        Tmax_down = Tb + Rb / node->k();
+        parity_down = 1 - node->left()->parity();  // Flip parity
+        
+        node->set_parity(parity_down);
+        
+        // If this is root, we're done
+        if (!node->parent()) {
+            return;
+        }
+        
+        // Compute upstream state
+        double L_parent = node->parent_len();
+        node->set_c_upstream(CT_down + c * L_parent);
+        node->set_t_upstream(r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down);
+        
+        // Check hypothetical
+        double t_hyp = Rb * (Co + c * L_parent + CT_down) + 
+                       r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
+        
+        if (t_hyp > T_constraint) {
+            double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, 
+                                                    Rb, r, c, Co);
+            
+            if (parity_down == 1) {
+                Node* inv = insert_inverter(node, L_max, Rb, r, c, Co, Cb, Tb);
+                process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb);
+            } else {
+                auto [inv1, inv2] = insert_repeater(node, L_max, Rb, r, c, Co, Cb, Tb);
+                process_node(inv1, T_constraint, Rb, r, c, Co, Cb, Tb);
+                process_node(inv2, T_constraint, Rb, r, c, Co, Cb, Tb);
+            }
+        }
+        
+        return;
+    }
+    
+    // ===== INTERNAL NODE =====
+    // Process both children first
+    process_node(node->left(), T_constraint, Rb, r, c, Co, Cb, Tb);
+    process_node(node->right(), T_constraint, Rb, r, c, Co, Cb, Tb);
+    
+    // Check parity mismatch
+    int parity_left = node->left()->parity();
+    int parity_right = node->right()->parity();
+    
+    if (parity_left != parity_right) {
+        // Insert inverter on odd child
+        if (parity_left == 1) {
+            Node* inv = insert_inverter_on_child(node, 0, Rb, r, c, Co, Cb, Tb);
+            process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb);
+        } else {
+            Node* inv = insert_inverter_on_child(node, 1, Rb, r, c, Co, Cb, Tb);
+            process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb);
+        }
+        
+        // Recompute after fixing parity
+        parity_left = node->left()->parity();
+        parity_right = node->right()->parity();
+    }
+    
+    // Compute internal node state
+    double C_left = node->left()->c_upstream();
+    double C_right = node->right()->c_upstream();
+    double T_left = node->left()->t_upstream();
+    double T_right = node->right()->t_upstream();
+    
+    CT_down = C_left + C_right;
+    Tmax_down = (T_left > T_right) ? T_left : T_right;
+    parity_down = parity_left;  // Both same now
+    
+    node->set_parity(parity_down);
+    
+    // ===== ROOT CASE =====
+    if (!node->parent()) {
+        // Check driver capacity
+        double delay = Rb * (Co + CT_down) + Tmax_down;
+        
+        if (delay > T_constraint || parity_down == 1) {
+            // Insert inverters on both branches
+            Node* inv_left = insert_inverter_on_child(node, 0, Rb, r, c, Co, Cb, Tb);
+            Node* inv_right = insert_inverter_on_child(node, 1, Rb, r, c, Co, Cb, Tb);
+            
+            process_node(inv_left, T_constraint, Rb, r, c, Co, Cb, Tb);
+            process_node(inv_right, T_constraint, Rb, r, c, Co, Cb, Tb);
+        }
+        
+        node->set_k(1);  // Root always has k=1
+        return;
+    }
+    
+    // ===== NON-ROOT INTERNAL NODE =====
+    // Compute upstream state
+    double L_parent = node->parent_len();
+    node->set_c_upstream(CT_down + c * L_parent);
+    node->set_t_upstream(r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down);
+    
+    // Check hypothetical
+    double t_hyp = Rb * (Co + c * L_parent + CT_down) + 
+                   r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
+    
+    if (t_hyp > T_constraint) {
+        double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, 
+                                                Rb, r, c, Co);
+        
+        if (parity_down == 1) {
+            // Single inverter
+            Node* inv = insert_inverter(node, L_max, Rb, r, c, Co, Cb, Tb);
+            process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb);
+        } else {
+            // Repeater
+            auto [inv1, inv2] = insert_repeater(node, L_max, Rb, r, c, Co, Cb, Tb);
+            process_node(inv1, T_constraint, Rb, r, c, Co, Cb, Tb);
+            process_node(inv2, T_constraint, Rb, r, c, Co, Cb, Tb);
+        }
+    }
+}
+
+// Main entry point
+void inverter_insertion(Node* root, double T_constraint, 
+                        double Rb, double r, double c, double Co, double Cb, double Tb) {
+    process_node(root, T_constraint, Rb, r, c, Co, Cb, Tb);
+}
+
+void postorder_with_inverters(Node* root, FILE* out) {
+    if (!root) return;
+    
+    // Post-order: process children first, then self
+    
+    if (!root->leaf()) {
+        // Internal or inverter node - process children
+        if (root->left()) {
+            postorder_with_inverters(root->left(), out);
+        }
+        if (root->right()) {
+            postorder_with_inverters(root->right(), out);
+        }
+        
+        // Print this node
+        // Format: (left_len right_len k)
+        // If right child doesn't exist, use -1.0 for right_len
+        double left_len = root->left_len();
+        double right_len = root->right() ? root->right_len() : -1.0;
+        int k = root->k();
+        
+        fprintf(out, "(%.10le %.10le %d)\n", left_len, right_len, k);
+    } else {
+        // Leaf node
+        // Format: label(capacitance)
+        fprintf(out, "%d(%.10le)\n", root->label(), root->cap());
+    }
+}
+
+// Post-order traversal output for topology with inverters (BINARY)
+void postorder_with_inverters_binary(Node* root, FILE* out) {
+    if (!root) return;
+    
+    // Post-order: process children first, then self
+    
+    if (!root->leaf()) {
+        // Internal or inverter node - process children
+        if (root->left()) {
+            postorder_with_inverters_binary(root->left(), out);
+        }
+        if (root->right()) {
+            postorder_with_inverters_binary(root->right(), out);
+        }
+        
+        // Write this node in binary format
+        // Format: int(-1), double(left_len), double(right_len), int(k)
+        int marker = -1;
+        double left_len = root->left_len();
+        double right_len = root->right() ? root->right_len() : -1.0;
+        int k = root->k();
+        
+        fwrite(&marker, sizeof(int), 1, out);
+        fwrite(&left_len, sizeof(double), 1, out);
+        fwrite(&right_len, sizeof(double), 1, out);
+        fwrite(&k, sizeof(int), 1, out);
+    } else {
+        // Leaf node
+        // Format: int(label), double(capacitance)
+        int label = root->label();
+        double cap = root->cap();
+        
+        fwrite(&label, sizeof(int), 1, out);
+        fwrite(&cap, sizeof(double), 1, out);
+    }
+}

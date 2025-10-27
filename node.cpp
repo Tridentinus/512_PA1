@@ -13,9 +13,13 @@ Node::Node(int lbl,double c) :
     c_prime_(0.0),
     c_downstream_(0.0),
     elmore_delay_(0.0),
-    left_segments_(0),
-    right_segments_(0),
-    k_(0)
+    parent_(nullptr),
+    parentLen_(0.0),
+    k_(0),
+    c_upstream_(0),
+    t_upstream_(0),
+    parity_(0)
+
     {}
 
 Node::Node(double lLen, double rLen, Node* lChild, Node* rChild):
@@ -30,9 +34,12 @@ Node::Node(double lLen, double rLen, Node* lChild, Node* rChild):
     c_prime_(0.0),
     c_downstream_(0.0),
     elmore_delay_(0.0),
-    left_segments_(0),
-    right_segments_(0),
-    k_(0) {}
+    parent_(nullptr),
+    parentLen_(0.0),
+    k_(0),
+    c_upstream_(0),
+    t_upstream_(0),
+    parity_(0) {}
 
 Node::~Node() {
     if (!this->leaf()) {

@@ -49,7 +49,7 @@ int main(int argc, char * argv[]) {
         return EXIT_FAILURE;
     }
     preorder(root, preOut);
-    fclose(preOut);
+    // fclose(preOut);
     char buf[256];
     double C_in = 0.0, C_out = 0.0, R_inv = 0.0;
     if (fgets(buf, sizeof(buf), invIn)) {
@@ -66,6 +66,17 @@ int main(int argc, char * argv[]) {
     dp_delay(root, R_inv, r, elmoreOut);
     fclose(elmoreOut);
 
+    
+    double Tb = R_inv * C_out;
+
+    inverter_insertion(root,atof(argv[1]), R_inv, r, c, C_out, C_in, Tb);
+    
+    postorder_with_inverters(root,ttopoOut);
+    fclose(ttopoOut);
+    postorder_with_inverters_binary(root,btopoOut);
+    fclose(btopoOut);
+    std::cout << "Pre-order output written to " << argv[5] << std::endl;
+    preorder(root, preOut);
     delete root;
     return EXIT_SUCCESS;
 }
