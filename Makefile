@@ -3,13 +3,19 @@ CXX = g++
 
 # Default build mode (can override with `make MODE=debug`)
 MODE ?= release
+LOG ?= false # if true -DDEBUG is defined
+
 
 # Flags for each mode
-ifeq ($(MODE),debug)
-    CXXFLAGS = -std=c++11 -pedantic -Wvla -Wall -Wshadow -g
-else ifeq ($(MODE),release)
-    CXXFLAGS = -std=c++11 -pedantic -Wvla -Wall -Wshadow -O3
+ifeq ($(MODE),release)
+	CXXFLAGS = -std=c++11 -pedantic -Wvla -Wall -Wshadow -O3
+else ifeq ($(LOG),true)
+	CXXFLAGS = -std=c++11 -pedantic -Wvla -Wall -Wshadow -g -DDEBUG
+else
+	CXXFLAGS = -std=c++11 -pedantic -Wvla -Wall -Wshadow -g
 endif
+
+
 
 # Target executable
 TARGET = pa1
@@ -58,7 +64,6 @@ run: all
 	mkdir -p out
 	./$(TARGET) $(TIME) $(INV) $(WIRE) $(INPUT) $(OUT_PRE) $(OUT_ELM) $(OUT_TTOPO) $(OUT_BTOPO)
 
-
 .PHONY: run-valgrind
 run-valgrind: all
 	@echo "Running $(TARGET) under valgrind with TIME=$(TIME), FAKE=$(FAKE), NAME=$(NAME)"
@@ -70,6 +75,12 @@ run-valgrind: all
 	valgrind --tool=callgrind --callgrind-out-file=$(CALL) ./$(TARGET) $(TIME) $(INV) $(WIRE) $(INPUT) $(OUT_PRE) $(OUT_ELM) $(OUT_TTOPO) $(OUT_BTOPO)
 	@echo "Valgrind memcheck log: $(LOG)"
 	@echo "Callgrind output: $(CALL)"
+
+run-gdb: all
+	@echo "Running $(TARGET) under gdb with TIME=$(TIME), FAKE=$(FAKE), NAME=$(NAME)"
+	mkdir -p out
+	gdb --args ./$(TARGET) $(TIME) $(INV) $(WIRE) $(INPUT) $(OUT_PRE) $(OUT_ELM) $(OUT_TTOPO) $(OUT_BTOPO)
+
 
 # Phony targets
 .PHONY: all clean

@@ -25,6 +25,7 @@ int main(int argc, char * argv[]) {
         return EXIT_FAILURE;
     }
 
+    
     Node * root = buildTree(topIn);
     fclose(topIn);
     if (!root) {
@@ -32,6 +33,9 @@ int main(int argc, char * argv[]) {
         fclose(wireIn);
         return EXIT_FAILURE;
     }
+    topIn = fopen(argv[4], "r");
+    Node* original_root = buildTree(topIn);
+    fclose(topIn);
 
     FILE * preOut    = fopen(argv[5], "w");   
     FILE * elmoreOut = fopen(argv[6], "wb");  
@@ -59,6 +63,8 @@ int main(int argc, char * argv[]) {
     if (fgets(buf, sizeof(buf), wireIn)) {
         sscanf(buf, "%le %le\n", &r, &c);
     }
+    fprintf(stderr, "Inverter params: C_in=%.2le, C_out=%.2le, R_inv=%.2le\n", C_in, C_out, R_inv);
+    fprintf(stderr, "Wire params: r=%.2le, c=%.2le\n", r, c);
     fclose(invIn);
     fclose(wireIn);
     build_c_prime_dp(root, C_out, c, /*is_root=*/true);
@@ -68,15 +74,37 @@ int main(int argc, char * argv[]) {
 
     
     double Tb = R_inv * C_out;
+    fprintf(stderr, "Inverter intrinsic delay Tb=Rb*C_out=%.2le\n", Tb);
 
-    inverter_insertion(root,atof(argv[1]), R_inv, r, c, C_out, C_in, Tb);
+    try {
+        bool feasible = inverter_insertion(root, atof(argv[1]), R_inv, r, c, C_out, C_in, Tb);
+        fprintf(stderr, "Inverter insertion %sfeasible under T=%.3f s\n", 
+                feasible ? "" : "not ", atof(argv[1]));
+        verify_solution(original_root, root, atof(argv[1]), argv[4]);
+        postorder_with_inverters(root,ttopoOut);
+        fclose(ttopoOut);
+        postorder_with_inverters_binary(root,btopoOut);
+        fclose(btopoOut);
+        delete root;
+        delete original_root;
+        return EXIT_SUCCESS;
+    } catch (...) {
+        std::cerr << "Error during inverter insertion." << std::endl;
+        postorder_with_inverters(root,ttopoOut);
+        fclose(ttopoOut);
+        postorder_with_inverters_binary(root,btopoOut);
+        fclose(btopoOut);
+        delete original_root;
+        delete root;
+        return EXIT_FAILURE;
+        
+    }
     
-    postorder_with_inverters(root,ttopoOut);
-    fclose(ttopoOut);
-    postorder_with_inverters_binary(root,btopoOut);
-    fclose(btopoOut);
-    std::cout << "Pre-order output written to " << argv[5] << std::endl;
-    preorder(root, preOut);
+    // postorder_with_inverters(root,ttopoOut);
+    // fclose(ttopoOut);
+    // postorder_with_inverters_binary(root,btopoOut);
+    // fclose(btopoOut);
     delete root;
+    delete original_root;
     return EXIT_SUCCESS;
 }

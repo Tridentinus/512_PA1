@@ -4,6 +4,7 @@
 #include <iostream>
 #include <stack>
 #include <vector>
+#include <set>
 
 typedef struct
 {
@@ -36,12 +37,22 @@ Node* insert_inverter_on_child(Node* parent,int child_side,
                                 double Rb, double r, double c, 
                                 double Co, double Cb, double Tb);
 
-void process_node(Node* node, double T_constraint, 
+bool process_node(Node* node, double T_constraint, 
                   double Rb, double r, double c, double Co, double Cb, double Tb);
 
-void inverter_insertion(Node* root, double T_constraint, 
+bool inverter_insertion(Node* root, double T_constraint, 
                         double Rb, double r, double c, double Co, double Cb, double Tb);
 
 // Output functions for topology with inverters
 void postorder_with_inverters(Node* root, FILE* out);
 void postorder_with_inverters_binary(Node* root, FILE* out);
+
+
+void count_sinks(Node* node, std::set<int>& sinks);
+void count_edges(Node* node, std::set<std::pair<int, int>>& edges, int parent_id);
+void check_parity(Node* node, int& noninverting_count);
+void count_inverters(Node* node, int& inverter_count, bool& all_valid, bool count_root );
+void count_stage_sinks(Node* node, double T_constraint, int& stage_sinks, int& safe_stage_sinks);
+void verify_solution(Node* original_root, Node* modified_root, double T_constraint, 
+                     const char* test_name);
+
