@@ -388,11 +388,20 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
         
         if (parity_left != parity_right) {
         
-            Node* inv = insert_inverter_on_child(node,0, Rb, r, c, Co, Cb, Tb);
-            if (!process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb)) {
-                depth--;
-                return false;
+            if (parity_left == 1) {
+                Node* inv = insert_inverter_on_child(node, 0, Rb, r, c, Co, Cb, Tb);  // 0 = left
+                if (!process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                    depth--;
+                    return false;
+                }
+            } else {
+                Node* inv = insert_inverter_on_child(node, 1, Rb, r, c, Co, Cb, Tb);  // 1 = right
+                if (!process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                    depth--;
+                    return false;
+                }
             }
+            
             parity_left = node->left()->parity();
             parity_right = node->right()->parity();
         }
