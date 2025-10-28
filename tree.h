@@ -29,9 +29,6 @@ double compute_max_distance_hyp(double CT, double Tmax, double T_constraint,
 Node* insert_inverter(Node* node, double L_max, double Rb, double r, double c, 
                       double Co, double Cb, double Tb);
 
-std::pair<Node*, Node*> insert_repeater(Node* node, double L_max, 
-                                        double Rb, double r, double c, 
-                                        double Co, double Cb, double Tb);
 
 Node* insert_inverter_on_child(Node* parent,int child_side,
                                 double Rb, double r, double c, 
@@ -43,7 +40,6 @@ bool process_node(Node* node, double T_constraint,
 bool inverter_insertion(Node* root, double T_constraint, 
                         double Rb, double r, double c, double Co, double Cb, double Tb);
 
-// Output functions for topology with inverters
 void postorder_with_inverters(Node* root, FILE* out);
 void postorder_with_inverters_binary(Node* root, FILE* out);
 

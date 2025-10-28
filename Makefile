@@ -3,14 +3,11 @@ CXX = g++
 
 # Default build mode (can override with `make MODE=debug`)
 MODE ?= release
-LOG ?= false # if true -DDEBUG is defined
 
 
 # Flags for each mode
 ifeq ($(MODE),release)
 	CXXFLAGS = -std=c++11 -pedantic -Wvla -Wall -Wshadow -O3
-else ifeq ($(LOG),true)
-	CXXFLAGS = -std=c++11 -pedantic -Wvla -Wall -Wshadow -g -DDEBUG
 else
 	CXXFLAGS = -std=c++11 -pedantic -Wvla -Wall -Wshadow -g
 endif

@@ -32,9 +32,7 @@ int main(int argc, char * argv[]) {
         fclose(wireIn);
         return EXIT_FAILURE;
     }
-    topIn = fopen(argv[4], "r");
-    Node* original_root = buildTree(topIn);
-    fclose(topIn);
+
 
 
 
@@ -85,18 +83,23 @@ int main(int argc, char * argv[]) {
     double Tb = R_inv * C_out;
     bool feasible = false;
     feasible = inverter_insertion(root, atof(argv[1]), R_inv, r, c, C_out, C_in, Tb);
-    verify_solution(original_root, root, atof(argv[1]), argv[4]);
-    postorder_with_inverters(root, ttopoOut);
-    postorder_with_inverters_binary(root, btopoOut);
+   
     
-    delete root;
-    delete original_root;
-    fclose(ttopoOut);
-    fclose(btopoOut);
+
+   
+    
     if (feasible) {
-       return EXIT_SUCCESS;
+        postorder_with_inverters(root, ttopoOut);
+        postorder_with_inverters_binary(root, btopoOut);
+        fclose(ttopoOut);
+        fclose(btopoOut);
+        delete root;
+        return EXIT_SUCCESS;
     } else {
-       return EXIT_FAILURE;
+        fclose(ttopoOut);
+        fclose(btopoOut);
+        delete root;
+        return EXIT_FAILURE;
     }
 
 }
