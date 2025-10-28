@@ -526,11 +526,25 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
             DBGPRINT("[%*sDEBUG] Parity mismatch! left=%d, right=%d\n", depth*2, "", parity_left, parity_right);
             
            
-            Node* inv = insert_inverter_on_child(node,0, Rb, r, c, Co, Cb, Tb);
-            if (!process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb)) {
-                depth--;
-                return false;
+            // Insert on the ODD child
+            if (parity_left == 1) {
+                // Left is odd, insert there
+                DBGPRINT("[%*sDEBUG] Inserting inverter on LEFT (odd) child\n", depth*2, "");
+                Node* inv = insert_inverter_on_child(node, 0, Rb, r, c, Co, Cb, Tb);  // 0 = left
+                if (!process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                    depth--;
+                    return false;
+                }
+            } else {
+                // Right is odd, insert there
+                DBGPRINT("[%*sDEBUG] Inserting inverter on RIGHT (odd) child\n", depth*2, "");
+                Node* inv = insert_inverter_on_child(node, 1, Rb, r, c, Co, Cb, Tb);  // 1 = right
+                if (!process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                    depth--;
+                    return false;
+                }
             }
+
             
             
             // Recompute after fixing parity
