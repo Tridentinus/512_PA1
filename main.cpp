@@ -11,10 +11,9 @@ int main(int argc, char * argv[]) {
     // argv[6] = out2: elmore (binary)
     // argv[7] = out3: ttopo (text)  -- will be empty for now
     // argv[8] = out4: btopo (binary) -- will be empty for now
-    if (argc < 6) return EXIT_FAILURE;
-
-    // const double T_max = atof(argv[1]);
-
+    if (argc < 9) return EXIT_FAILURE;
+    
+    // Read config files in
     FILE * invIn  = fopen(argv[2], "r");
     FILE * wireIn = fopen(argv[3], "r");
     FILE * topIn  = fopen(argv[4], "r");
@@ -25,7 +24,7 @@ int main(int argc, char * argv[]) {
         return EXIT_FAILURE;
     }
 
-    
+    // Build the RC tree (twice)
     Node * root = buildTree(topIn);
     fclose(topIn);
     if (!root) {
@@ -36,6 +35,8 @@ int main(int argc, char * argv[]) {
     topIn = fopen(argv[4], "r");
     Node* original_root = buildTree(topIn);
     fclose(topIn);
+
+
 
     FILE * preOut    = fopen(argv[5], "w");   
     FILE * elmoreOut = fopen(argv[6], "wb");  
@@ -52,8 +53,12 @@ int main(int argc, char * argv[]) {
         fclose(wireIn);
         return EXIT_FAILURE;
     }
+
+    // Output pre-order of the original tree
     preorder(root, preOut);
-    // fclose(preOut);
+    fclose(preOut);
+
+    // Read inverter and wire params
     char buf[256];
     double C_in = 0.0, C_out = 0.0, R_inv = 0.0;
     if (fgets(buf, sizeof(buf), invIn)) {
@@ -63,48 +68,35 @@ int main(int argc, char * argv[]) {
     if (fgets(buf, sizeof(buf), wireIn)) {
         sscanf(buf, "%le %le\n", &r, &c);
     }
-    fprintf(stderr, "Inverter params: C_in=%.2le, C_out=%.2le, R_inv=%.2le\n", C_in, C_out, R_inv);
-    fprintf(stderr, "Wire params: r=%.2le, c=%.2le\n", r, c);
     fclose(invIn);
     fclose(wireIn);
+
+    // Compute Elmore delays
     build_c_prime_dp(root, C_out, c, /*is_root=*/true);
+
+    // Downstream capacitance and Elmore delay
     dp_downstream(root);
+
+    // Elmore delay
     dp_delay(root, R_inv, r, elmoreOut);
     fclose(elmoreOut);
 
     
     double Tb = R_inv * C_out;
-    fprintf(stderr, "Inverter intrinsic delay Tb=Rb*C_out=%.2le\n", Tb);
-
-    try {
-        bool feasible = inverter_insertion(root, atof(argv[1]), R_inv, r, c, C_out, C_in, Tb);
-        fprintf(stderr, "Inverter insertion %sfeasible under T=%.3f s\n", 
-                feasible ? "" : "not ", atof(argv[1]));
-        verify_solution(original_root, root, atof(argv[1]), argv[4]);
-        postorder_with_inverters(root,ttopoOut);
-        fclose(ttopoOut);
-        postorder_with_inverters_binary(root,btopoOut);
-        fclose(btopoOut);
-        delete root;
-        delete original_root;
-        return EXIT_SUCCESS;
-    } catch (...) {
-        std::cerr << "Error during inverter insertion." << std::endl;
-        postorder_with_inverters(root,ttopoOut);
-        fclose(ttopoOut);
-        postorder_with_inverters_binary(root,btopoOut);
-        fclose(btopoOut);
-        delete original_root;
-        delete root;
-        return EXIT_FAILURE;
-        
-    }
+    bool feasible = false;
+    feasible = inverter_insertion(root, atof(argv[1]), R_inv, r, c, C_out, C_in, Tb);
+    verify_solution(original_root, root, atof(argv[1]), argv[4]);
+    postorder_with_inverters(root, ttopoOut);
+    postorder_with_inverters_binary(root, btopoOut);
     
-    // postorder_with_inverters(root,ttopoOut);
-    // fclose(ttopoOut);
-    // postorder_with_inverters_binary(root,btopoOut);
-    // fclose(btopoOut);
     delete root;
     delete original_root;
-    return EXIT_SUCCESS;
+    fclose(ttopoOut);
+    fclose(btopoOut);
+    if (feasible) {
+       return EXIT_SUCCESS;
+    } else {
+       return EXIT_FAILURE;
+    }
+
 }
