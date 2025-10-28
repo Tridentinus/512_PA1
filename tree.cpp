@@ -130,8 +130,12 @@ void dp_downstream(Node * root) {
     Node * u = stack.top(); stack.pop();
     post.push(u);
     if (!u->leaf()) {
-      stack.push(u->left());
-      stack.push(u->right());
+      if (u->left()) {
+        stack.push(u->left());
+      }
+      if (u->right()) {  // ADD THIS CHECK
+        stack.push(u->right());
+      }
     }
   }
 
@@ -139,9 +143,14 @@ void dp_downstream(Node * root) {
     Node * v = post.top(); post.pop();
     double S = v->c_prime();
     if (!v->leaf()) {
-        double lDown = v->left()->c_downstream();
-        double rDown = v->right()->c_downstream();
-        S += lDown + rDown;
+        if (v->left()) {
+          double lDown = v->left()->c_downstream();
+          S += lDown;
+        }
+        if (v->right()) {  // ADD THIS CHECK
+          double rDown = v->right()->c_downstream();
+          S += rDown;
+        }
     }
     v->set_c_downstream(S);
   }
@@ -747,6 +756,105 @@ struct InverterStats {
                       stage_sinks(0), safe_stage_sinks(0), inverter_count(0) {}
 };
 
+Node* buildTreeWithInverters(FILE* in) {
+    char buf[256];
+    std::stack<Node*> st;
+    
+    while (fgets(buf, sizeof(buf), in)) {
+        if (buf[0] == '(') {
+            double l, r;
+            int k;
+            sscanf(buf, "(%le %le %d)", &l, &r, &k);
+            
+            // Pop children based on whether right child exists
+            Node* right = nullptr;
+            if (r >= 0.0) {  // Has right child
+                right = st.top();
+                st.pop();
+            }
+            Node* left = st.top();
+            st.pop();
+            
+            Node* node = new Node(l, r, left, right);
+            node->set_k(k);
+            
+            left->set_parent(node, l);
+            if (right) {
+                right->set_parent(node, r);
+            }
+            
+            st.push(node);
+        } else {
+            int label;
+            double cap;
+            sscanf(buf, "%d(%le)", &label, &cap);
+            Node* node = new Node(label, cap);
+            st.push(node);
+        }
+    }
+    
+    Node* root = st.top();
+    root->set_parent(nullptr, 0.0);
+    return root;
+}
+
+void verify_stage_delays(Node* root, double T_constraint, double Rb, double re, 
+                         double Tb, int& stage_sinks, int& safe_stage_sinks) {
+    if (!root) return;
+    
+    std::stack<std::tuple<Node*, double, bool>> st;  // (node, accumulated_delay, is_from_inverter)
+    st.push({root, 0.0, true});  // Root is an inverter
+    
+    while (!st.empty()) {
+        Node* node;
+        double stage_delay;
+        bool from_inv;
+        std::tie(node, stage_delay, from_inv) = st.top();
+        st.pop();
+        
+        if (node->k() > 0 && node->parent()) {
+            // This is an inverter (not root) - it's a "stage sink"
+            stage_sinks++;
+            if (stage_delay <= T_constraint) {
+                safe_stage_sinks++;
+            } else {
+                printf("WARNING: Inverter stage delay %.2le > constraint %.2le\n", 
+                       stage_delay, T_constraint);
+            }
+            
+            // Reset for next stage
+            if (!node->leaf() && node->left()) {
+                double next_delay = Tb + node->left_len() * re * node->left()->c_downstream();
+                st.push({node->left(), next_delay, true});
+            }
+        } else if (node->leaf()) {
+            // Actual sink
+            stage_sinks++;
+            if (stage_delay <= T_constraint) {
+                safe_stage_sinks++;
+            } else {
+                printf("WARNING: Sink %d stage delay %.2le > constraint %.2le\n", 
+                       node->label(), stage_delay, T_constraint);
+            }
+        } else {
+            // Regular internal node - continue accumulating
+            double current_delay = stage_delay;
+            if (from_inv) {
+                current_delay = Tb + stage_delay;
+            }
+            
+            if (node->left()) {
+                double acc_l = current_delay + node->left_len() * re * node->left()->c_downstream();
+                st.push({node->left(), acc_l, false});
+            }
+            if (node->right()) {
+                double acc_r = current_delay + node->right_len() * re * node->right()->c_downstream();
+                st.push({node->right(), acc_r, false});
+            }
+        }
+    }
+}
+
 // Count sinks in tree
 void count_sinks(Node* node, std::set<int>& sinks) {
     if (!node) return;
@@ -778,19 +886,38 @@ void count_edges(Node* node, std::set<std::pair<int, int>>& edges, int parent_id
     }
 }
 
-// Check parity and count non-inverting sinks
-void check_parity(Node* node, int& noninverting_count) {
+
+
+// Traverse from root, tracking inversions
+void verify_parity_from_root(Node* node, int inversions_so_far, int& noninverting_count) {
     if (!node) return;
+    
+    // If this node is an inverter, increment inversion count
+    int current_inversions = inversions_so_far;
+    if (node->k() > 0) {
+        current_inversions++;
+    }
+    
     if (node->leaf()) {
-        if (node->parity() == 0) {
+        // Check if even number of inversions
+        if (current_inversions % 2 == 0) {
             noninverting_count++;
+        } else {
+            printf("WARNING: Sink %d has odd parity (%d inversions)\n", 
+                   node->label(), current_inversions);
         }
     } else {
-        check_parity(node->left(), noninverting_count);
+        verify_parity_from_root(node->left(), current_inversions, noninverting_count);
         if (node->right()) {
-            check_parity(node->right(), noninverting_count);
+            verify_parity_from_root(node->right(), current_inversions, noninverting_count);
         }
     }
+}
+
+// Use this in your verification
+void check_parity(Node* root, int& noninverting_count) {
+    noninverting_count = 0;
+    verify_parity_from_root(root, 0, noninverting_count);
 }
 
 // Count inverters and check validity
@@ -845,7 +972,7 @@ void count_stage_sinks(Node* node, double T_constraint, int& stage_sinks, int& s
 }
 
 // Main verification function
-void verify_solution(Node* original_root, Node* modified_root, double T_constraint, 
+void verify_solution(Node* original_root, Node* modified_root,Node* ttopoRoot,double Rb,double r ,double Tb, double T_constraint, 
                      const char* test_name) {
     InverterStats stats;
     
@@ -887,6 +1014,9 @@ void verify_solution(Node* original_root, Node* modified_root, double T_constrai
     
     // Count stage sinks
     count_stage_sinks(modified_root, T_constraint, stats.stage_sinks, stats.safe_stage_sinks);
+
+    stats.stage_sinks = 0;
+    verify_stage_delays(modified_root, T_constraint, Rb, r, Tb, stats.stage_sinks, stats.safe_stage_sinks);
     
     // Print results
     printf( "\n=== VERIFICATION RESULTS for %s ===\n", test_name);

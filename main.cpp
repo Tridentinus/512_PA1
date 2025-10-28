@@ -80,11 +80,26 @@ int main(int argc, char * argv[]) {
         bool feasible = inverter_insertion(root, atof(argv[1]), R_inv, r, c, C_out, C_in, Tb);
         fprintf(stderr, "Inverter insertion %sfeasible under T=%.3f s\n", 
                 feasible ? "" : "not ", atof(argv[1]));
-        verify_solution(original_root, root, atof(argv[1]), argv[4]);
+
         postorder_with_inverters(root,ttopoOut);
         fclose(ttopoOut);
         postorder_with_inverters_binary(root,btopoOut);
         fclose(btopoOut);
+        //open the ttopo to verify
+        FILE* ttopoIn = fopen(argv[7],"r");
+        if(!ttopoIn){
+            std::cerr << "Error opening ttopo for verification." << std::endl;
+            delete root;
+            delete original_root;
+            return EXIT_FAILURE;
+        }
+        Node* ttopo_root = buildTreeWithInverters(ttopoIn);
+        build_c_prime_dp(ttopo_root, C_out, c, /*is_root=*/true);
+        dp_downstream(ttopo_root);
+        fclose(ttopoIn);
+
+        verify_solution(original_root, root, ttopo_root,R_inv,r,Tb,atof(argv[1]), argv[4]);
+
         delete root;
         delete original_root;
         return EXIT_SUCCESS;
