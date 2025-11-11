@@ -300,8 +300,11 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
            
 
             if (L_max < 0.0) {
-                L_max= 0.0;
-                zero_insert_streak++;
+                // L_max= 0.0;
+                // zero_insert_streak++;
+
+                // its cooked
+                return false;
             }
 
             if (L_max == 0.0) {
@@ -348,8 +351,11 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
         if (t_hyp > T_constraint) {
             double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, Rb, r, c, Co);
             if (L_max < 0.0) {
-                L_max= 0.0;
-                zero_insert_streak++;
+                // L_max= 0.0;
+                // zero_insert_streak++;
+
+                // its over
+                return false;
 
             }
 
@@ -458,7 +464,9 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
             double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, Rb, r, c, Co);
             
             if (L_max < 0.0) {
-                L_max= 0.0;
+                // L_max= 0.0;
+
+                return false;
             }
             if (L_max == 0.0) {
                 zero_insert_streak++;

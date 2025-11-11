@@ -30,6 +30,7 @@ private:
     double t_upstream_;
     int parity_;
 
+
 public:
     Node(int lbl,double c);
     Node(double lLen, double rLen, Node* lChild, Node* rChild);
@@ -79,6 +80,7 @@ public:
     
     int parity() const {return parity_;};
     void set_parity(int p) {parity_ = p;};
+
     
     
 };
