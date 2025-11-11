@@ -71,10 +71,10 @@ run-valgrind: all
 	# Run memcheck
 	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --log-file=$(LOG) \
 		./$(TARGET) $(TIME) $(INV) $(WIRE) $(INPUT) $(OUT_PRE) $(OUT_ELM) $(OUT_TTOPO) $(OUT_BTOPO)
-	# Run callgrind for profiling (optional)
-	valgrind --tool=callgrind --callgrind-out-file=$(CALL) ./$(TARGET) $(TIME) $(INV) $(WIRE) $(INPUT) $(OUT_PRE) $(OUT_ELM) $(OUT_TTOPO) $(OUT_BTOPO)
+# 	# Run callgrind for profiling (optional)
+# 	valgrind --tool=callgrind --callgrind-out-file=$(CALL) ./$(TARGET) $(TIME) $(INV) $(WIRE) $(INPUT) $(OUT_PRE) $(OUT_ELM) $(OUT_TTOPO) $(OUT_BTOPO)
 	@echo "Valgrind memcheck log: $(LOG)"
-	@echo "Callgrind output: $(CALL)"
+# 	@echo "Callgrind output: $(CALL)"
 
 run-gdb: all
 	@echo "Running $(TARGET) under gdb with TIME=$(TIME), FAKE=$(FAKE), NAME=$(NAME)"

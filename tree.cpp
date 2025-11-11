@@ -325,12 +325,13 @@ Node* insert_inverter_on_child(Node* parent, int child_side,double Rb, double r,
 }
 
 double compute_max_distance_hyp(double CT, double Tmax, double T_constraint, double Rb, double r, double c, double Co) {
-  //DBGPRINT( "    >>> compute_max_distance_hyp: CT=%.2le, Tmax=%.2le, T_constraint=%.2le\n", CT, Tmax, T_constraint);
+  DBGPRINT( "    >>> compute_max_distance_hyp: CT=%.2le, Tmax=%.2le, T_constraint=%.2le\n", CT, Tmax, T_constraint);
     
+  
     double a = r * c / 2.0;
     double b = Rb * c + r * CT;
     double c_coef = Rb * Co + Rb * CT + Tmax - T_constraint;
-    
+
   DBGPRINT( "    >>> Quadratic: a=%.2le, b=%.2le, c=%.2le\n", a, b, c_coef);
     
     double discriminant = b * b - 4.0 * a * c_coef;
@@ -451,7 +452,7 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
         Tmax_down = Tb;
         parity_down = 1 - node->left()->parity();
         node->set_parity(parity_down);
-        DBGPRINT("[%*sDEBUG] Result: parity=%d, CT_down=%.2le, Tmax_down=%.2le\n", depth*2, "", parity_down, CT_down, Tmax_down);
+        DBGPRINT("[%*sDEBUG] Result: parity=%d, CT_down=%.2le, Tmax_down=%.2le\n, pLen=%.2le", depth*2, "", parity_down, CT_down, Tmax_down,node->parent_len());
         // If root, done
         if (!node->parent()) {
             DBGPRINT("[%*sDEBUG] INVERTER is root, done.\n", depth*2, "");
@@ -573,7 +574,7 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
         parity_down = parity_left;  // Both same now
         
         node->set_parity(parity_down);
-        DBGPRINT("[%*sDEBUG] Result: parity=%d, CT_down=%.2le, Tmax_down=%.2le\n", depth*2, "", parity_down, CT_down, Tmax_down);
+        DBGPRINT("[%*sDEBUG] Result: parity=%d, CT_down=%.2le, Tmax_down=%.2le, pLen=%.2le\n", depth*2, "", parity_down, CT_down, Tmax_down,node->parent_len());
         
         // ===== ROOT CASE =====
         if (!node->parent()) {
@@ -1014,8 +1015,8 @@ void verify_solution(Node* original_root, Node* modified_root,Node* ttopoRoot,do
     stats.noninverting_sinks = 0;
     check_parity(modified_root, stats.noninverting_sinks);
     
-    // Count stage sinks
-    count_stage_sinks(modified_root, T_constraint, stats.stage_sinks, stats.safe_stage_sinks);
+    // // Count stage sinks
+    // count_stage_sinks(modified_root, T_constraint, stats.stage_sinks, stats.safe_stage_sinks);
 
     stats.stage_sinks = 0;
     verify_stage_delays(modified_root, T_constraint, Rb, r, Tb, stats.stage_sinks, stats.safe_stage_sinks);
