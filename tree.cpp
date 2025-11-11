@@ -394,7 +394,7 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
             // }
 
             if (L_max < 0.0) {
-                L_max= 0.0;
+                // L_max= 0.0;
                 // // delay up = intrinsic delay of inverter (Tb = Rb * C_out) + delay from wire resistance and capacitance to parent (c_up = r * parentLen * (c * parentLen/2 + Co))
                 // double delay_up = Tb + r * node->parent_len() * (c * node->parent_len()/2 + Co);
                 // DBGPRINT("[%*sDEBUG] L_max < 0, setting L_max=0. Calculated delay_up=%.2le\n", depth*2, "", delay_up);
@@ -405,7 +405,8 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
                 //     depth--;
                 //     return false;  // Fail the testcase
                 // }
-                zero_insert_streak++;
+                // zero_insert_streak++;
+                return false;
 
             }
 
@@ -482,9 +483,9 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
             //     return false;  // Fail the testcase
             // }
             if (L_max < 0.0) {
-                L_max= 0.0;
-                zero_insert_streak++;
-
+                // L_max= 0.0;
+                // zero_insert_streak++;
+                return false;
             }
             if (L_max == 0.0) {
                 DBGPRINT("[%*sDEBUG] L_max == 0. Incrementing zero_insert_streak\n", depth*2, "");
@@ -628,7 +629,8 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
             //     return false;  // Fail the testcase
             // }
             if (L_max < 0.0) {
-                L_max= 0.0;
+                // L_max= 0.0;
+                return false;
             }
             
             if (L_max == 0.0) {
