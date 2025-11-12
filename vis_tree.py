@@ -137,7 +137,7 @@ def draw_pa1_tree(nodes, edges, root, title=None):
     
     plt.title(title or f"PA1 Tree (root={root})", fontsize=16, fontweight='bold')
     plt.axis('off')
-    plt.tight_layout()
+    # plt.tight_layout()
     
     # Save and show
     output_file = "pa1_tree_visualization.png"

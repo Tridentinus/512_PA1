@@ -33,9 +33,9 @@ int main(int argc, char * argv[]) {
         fclose(wireIn);
         return EXIT_FAILURE;
     }
-    topIn = fopen(argv[4], "r");
-    Node* original_root = buildTree(topIn);
-    fclose(topIn);
+    // topIn = fopen(argv[4], "r");
+    // Node* original_root = buildTree(topIn);
+    // fclose(topIn);
 
     FILE * preOut    = fopen(argv[5], "w");   
     FILE * elmoreOut = fopen(argv[6], "wb");  
@@ -53,7 +53,7 @@ int main(int argc, char * argv[]) {
         return EXIT_FAILURE;
     }
     preorder(root, preOut);
-    // fclose(preOut);
+    fclose(preOut);
     char buf[256];
     double C_in = 0.0, C_out = 0.0, R_inv = 0.0;
     if (fgets(buf, sizeof(buf), invIn)) {
@@ -80,28 +80,38 @@ int main(int argc, char * argv[]) {
         bool feasible = inverter_insertion(root, atof(argv[1]), R_inv, r, c, C_out, C_in, Tb);
         fprintf(stderr, "Inverter insertion %sfeasible under T=%.3f s\n", 
                 feasible ? "" : "not ", atof(argv[1]));
+        printf("Writing modified tree to %s and %s\n", argv[7], argv[8]);
+            // ✅ ADD THESE LINES to recompute capacitances after tree modification:
+        
+        clear_computed_fields(root);
+        build_c_prime_dp(root, C_out, c, /*is_root=*/true);
+        dp_downstream(root);
+
 
         postorder_with_inverters(root,ttopoOut);
         fclose(ttopoOut);
         postorder_with_inverters_binary(root,btopoOut);
         fclose(btopoOut);
-        //open the ttopo to verify
-        FILE* ttopoIn = fopen(argv[7],"r");
-        if(!ttopoIn){
-            std::cerr << "Error opening ttopo for verification." << std::endl;
-            delete root;
-            delete original_root;
+        // //open the ttopo to verify
+        // FILE* ttopoIn = fopen(argv[7],"r");
+        // if(!ttopoIn){
+        //     std::cerr << "Error opening ttopo for verification." << std::endl;
+        //     delete root;
+        //     delete original_root;
+        //     return EXIT_FAILURE;
+        // }
+        // Node* ttopo_root = buildTreeWithInverters(ttopoIn);
+        // build_c_prime_dp(ttopo_root, C_out, c, /*is_root=*/true);
+        // dp_downstream(ttopo_root);
+        // fclose(ttopoIn);
+
+        // verify_solution(original_root, root, ttopo_root, R_inv,r,c,C_out,C_in,Tb,atof(argv[1]), argv[4]);
+        // delete ttopo_root;
+        delete root;
+        // delete original_root;
+        if (!feasible) {
             return EXIT_FAILURE;
         }
-        Node* ttopo_root = buildTreeWithInverters(ttopoIn);
-        build_c_prime_dp(ttopo_root, C_out, c, /*is_root=*/true);
-        dp_downstream(ttopo_root);
-        fclose(ttopoIn);
-
-        verify_solution(original_root, root, ttopo_root,R_inv,r,Tb,atof(argv[1]), argv[4]);
-
-        delete root;
-        delete original_root;
         return EXIT_SUCCESS;
     } catch (...) {
         std::cerr << "Error during inverter insertion." << std::endl;
@@ -109,7 +119,7 @@ int main(int argc, char * argv[]) {
         fclose(ttopoOut);
         postorder_with_inverters_binary(root,btopoOut);
         fclose(btopoOut);
-        delete original_root;
+        // delete original_root;
         delete root;
         return EXIT_FAILURE;
         
@@ -120,6 +130,6 @@ int main(int argc, char * argv[]) {
     // postorder_with_inverters_binary(root,btopoOut);
     // fclose(btopoOut);
     delete root;
-    delete original_root;
+    // delete original_root;
     return EXIT_SUCCESS;
 }

@@ -291,7 +291,40 @@ std::pair<Node*, Node*> insert_repeater(Node* node, double L_max, double Rb, dou
     return {inv1, inv2};
 }
 
-Node* insert_inverter_on_child(Node* parent, int child_side,double Rb, double r, double c, double Co, double Cb, double Tb) {
+// Node* insert_inverter_on_child(Node* parent, int child_side,double Rb, double r, double c, double Co, double Cb, double Tb) {
+//     Node* child;
+//     double edge_len;
+    
+//     if (child_side == 0) {
+//         child = parent->left();
+//         edge_len = parent->left_len();
+//     } else {
+//         child = parent->right();
+//         edge_len = parent->right_len();
+//     }
+    
+// //   DBGPRINT( "    >>> insert_inverter_below: parent=%p, child_side=%s, child=%p, edge_len=%.2le\n", (void*)parent, child_side == 0 ? "LEFT" : "RIGHT", (void*)child, edge_len);
+    
+//     Node* inv_node = new Node(0.0, -1.0, child, nullptr);
+//     inv_node->set_k(1);
+//     inv_node->set_parent(parent, edge_len);
+    
+// //   DBGPRINT( "    >>> Created inv_node=%p at TOP of branch (zero distance from child)\n", (void*)inv_node);
+    
+//     child->set_parent(inv_node, 0.0);
+    
+//     // Update parent's child pointer
+//     if (child_side == 0) {
+//         parent->set_left(inv_node);
+//     } else {
+//         parent->set_right(inv_node);
+//     }
+    
+// //   DBGPRINT( "    >>> insert_inverter_below DONE, returning inv_node=%p\n", (void*)inv_node);
+//     return inv_node;
+// }
+
+Node* insert_inverter_below(Node* parent, int child_side,double Rb, double r, double c, double Co, double Cb, double Tb) {
     Node* child;
     double edge_len;
     
@@ -303,24 +336,26 @@ Node* insert_inverter_on_child(Node* parent, int child_side,double Rb, double r,
         edge_len = parent->right_len();
     }
     
-  //DBGPRINT( "    >>> insert_inverter_on_child: parent=%p, child_side=%s, child=%p, edge_len=%.2le\n", (void*)parent, child_side == 0 ? "LEFT" : "RIGHT", (void*)child, edge_len);
+//   DBGPRINT( "    >>> insert_inverter_below: parent=%p, child_side=%s, child=%p, edge_len=%.2le\n", (void*)parent, child_side == 0 ? "LEFT" : "RIGHT", (void*)child, edge_len);
     
-    Node* inv_node = new Node(0.0, -1.0, child, nullptr);
+    Node* inv_node = new Node(edge_len, -1.0, child, nullptr);
     inv_node->set_k(1);
-    inv_node->set_parent(parent, edge_len);
+    inv_node->set_parent(parent, 0);
     
-  //DBGPRINT( "    >>> Created inv_node=%p at TOP of branch (zero distance from child)\n", (void*)inv_node);
+//   DBGPRINT( "    >>> Created inv_node=%p at TOP of branch (zero distance from child)\n", (void*)inv_node);
     
-    child->set_parent(inv_node, 0.0);
+    child->set_parent(inv_node, edge_len);
     
     // Update parent's child pointer
     if (child_side == 0) {
         parent->set_left(inv_node);
+        parent->set_left_len(0.0);
     } else {
         parent->set_right(inv_node);
+        parent->set_right_len(0.0);
     }
     
-  //DBGPRINT( "    >>> insert_inverter_on_child DONE, returning inv_node=%p\n", (void*)inv_node);
+//   DBGPRINT( "    >>> insert_inverter_below DONE, returning inv_node=%p\n", (void*)inv_node);
     return inv_node;
 }
 
@@ -350,18 +385,11 @@ double compute_max_distance_hyp(double CT, double Tmax, double T_constraint, dou
     return L_max;
 }
 // Main recursive processing function
-bool process_node(Node* node, double T_constraint, double Rb, double r, double c, double Co, double Cb, double Tb) {
-    
-    if (!node) return true;
-    static int depth = 0;
-    depth++;
-    double CT_down, Tmax_down;
-    int parity_down;
-    static int zero_insert_streak = 0;
-    // show the zero insert streak for debugging
-    DBGPRINT( "[%*sDEBUG] process_node: node=%p, zero_insert_streak=%d\n", depth*2, "", (void*)node, zero_insert_streak);
-    // ===== LEAF NODE =====
-    if (node->leaf()) {
+static int depth = 0;
+static int zero_insert_streak = 0;
+bool process_leaf(Node* node, double T_constraint, double Rb, double r, double c, double Co, double Cb, double Tb) {
+        double CT_down, Tmax_down;
+        int parity_down;
         DBGPRINT("[%*sDEBUG] Processing LEAF %d, cap=%.2le, pLen=%.2le\n", depth*2, "", node->label(), node->cap(), node->parent_len());
         CT_down = node->cap();
         Tmax_down = 0.0;
@@ -439,228 +467,283 @@ bool process_node(Node* node, double T_constraint, double Rb, double r, double c
         depth--;
         zero_insert_streak = 0;
         return true;
-    }
-    
-    // ===== INVERTER NODE =====
-    else if (node->k() > 0) {
-        DBGPRINT("[%*sDEBUG] Processing INVERTER k=%d\n", depth*2, "", node->k());
-        
+}
 
-        
-        // Compute inverter output
-        CT_down = Cb * node->k();
-        Tmax_down = Tb;
-        parity_down = 1 - node->left()->parity();
-        node->set_parity(parity_down);
-        DBGPRINT("[%*sDEBUG] Result: parity=%d, CT_down=%.2le, Tmax_down=%.2le\n, pLen=%.2le", depth*2, "", parity_down, CT_down, Tmax_down,node->parent_len());
-        // If root, done
-        if (!node->parent()) {
-            DBGPRINT("[%*sDEBUG] INVERTER is root, done.\n", depth*2, "");
-            depth--;
-            zero_insert_streak = 0;
-            return true;
-        }
-        
-        // Compute upstream state
-        double L_parent = node->parent_len();
-        double c_up = CT_down + c * L_parent;
-        double t_up = r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
-        node->set_c_upstream(c_up);
-        node->set_t_upstream(t_up);
-        
-        DBGPRINT("[%*sDEBUG] INVERTER upstream: c_up=%.2le, t_up=%.2le\n", depth*2, "", c_up, t_up);
-        // Check hypothetical
-        double t_hyp = Rb * (Co + c * L_parent + CT_down) + 
-                       r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
-        
-        DBGPRINT("[%*sDEBUG] INVERTER hypothetical delay: t_hyp=%.2le (constraint=%.2le)\n", depth*2, "", t_hyp, T_constraint);
-        if (t_hyp > T_constraint) {
-            double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, Rb, r, c, Co);
-            // if (L_max < 0.0) {
-            //     // INFEASIBLE: Cannot meet constraint even with inverter at node
-            //     DBGPRINT("[%*sERROR] Infeasible! L_max=%.2le < 0, constraint=%.2le cannot be met\n", 
-            //             depth*2, "", L_max, T_constraint);
-            //     depth--;
-            //     return false;  // Fail the testcase
-            // }
-            if (L_max < 0.0) {
-                // L_max= 0.0;
-                // zero_insert_streak++;
-                return false;
-            }
-            if (L_max == 0.0) {
-                DBGPRINT("[%*sDEBUG] L_max == 0. Incrementing zero_insert_streak\n", depth*2, "");
-
-                if (zero_insert_streak > 1) {
-                    DBGPRINT("[%*sERROR] Infeasible! Consecutive zero-length inverter insertions at LEAF %d\n", 
-                            depth*2, "", node->label());
-                    depth--;
-                    return false;  // Fail the testcase
-                }
-            } else {
-                zero_insert_streak = 0;
-            }
-            DBGPRINT("[%*sDEBUG] INVERTER violates! Inserting SINGLE inverter.\n", depth*2, "");
-            
-            
-            
-            Node* inv = insert_inverter(node, L_max, Rb, r, c, Co, Cb, Tb);
-            bool result = process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb);
-            depth--;
-            return result;
-        }
-        
+bool process_inv(Node* node, double T_constraint, double Rb, double r, double c, double Co, double Cb, double Tb) {
+    double CT_down, Tmax_down;
+    int parity_down;
+    DBGPRINT("[%*sDEBUG] Processing INVERTER k=%d\n", depth*2, "", node->k());
+    // Compute inverter output
+    CT_down = Cb * node->k();
+    Tmax_down = Tb;
+    parity_down = 1 - node->left()->parity();
+    node->set_parity(parity_down);
+    DBGPRINT("[%*sDEBUG] Result: parity=%d, CT_down=%.2le, Tmax_down=%.2le\n, pLen=%.2le", depth*2, "", parity_down, CT_down, Tmax_down,node->parent_len());
+    // If root, done
+    if (!node->parent()) {
+        DBGPRINT("[%*sDEBUG] INVERTER is root, done.\n", depth*2, "");
         depth--;
         zero_insert_streak = 0;
         return true;
     }
     
-    // ===== INTERNAL NODE =====
-    else {
-        DBGPRINT("[%*sDEBUG] Processing INTERNAL node\n", depth*2, "");
-        
-        // Process both children first
-        if (!process_node(node->left(), T_constraint, Rb, r, c, Co, Cb, Tb)) {
-            depth--;
+    // Compute upstream state
+    double L_parent = node->parent_len();
+    double c_up = CT_down + c * L_parent;
+    double t_up = r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
+    node->set_c_upstream(c_up);
+    node->set_t_upstream(t_up);
+    
+    DBGPRINT("[%*sDEBUG] INVERTER upstream: c_up=%.2le, t_up=%.2le\n", depth*2, "", c_up, t_up);
+    // Check hypothetical
+    double t_hyp = Rb * (Co + c * L_parent + CT_down) + 
+                    r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
+    
+    DBGPRINT("[%*sDEBUG] INVERTER hypothetical delay: t_hyp=%.2le (constraint=%.2le)\n", depth*2, "", t_hyp, T_constraint);
+    if (t_hyp > T_constraint) {
+        double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, Rb, r, c, Co);
+        // if (L_max < 0.0) {
+        //     // INFEASIBLE: Cannot meet constraint even with inverter at node
+        //     DBGPRINT("[%*sERROR] Infeasible! L_max=%.2le < 0, constraint=%.2le cannot be met\n", 
+        //             depth*2, "", L_max, T_constraint);
+        //     depth--;
+        //     return false;  // Fail the testcase
+        // }
+        if (L_max < 0.0) {
+            // L_max= 0.0;
+            // zero_insert_streak++;
             return false;
         }
-        if (!process_node(node->right(), T_constraint, Rb, r, c, Co, Cb, Tb)) {
-            depth--;
-            return false;
-        }
-        
-        // Check parity mismatch
-        int parity_left = node->left()->parity();
-        int parity_right = node->right()->parity();
-        
-        if (parity_left != parity_right) {
-            DBGPRINT("[%*sDEBUG] Parity mismatch! left=%d, right=%d\n", depth*2, "", parity_left, parity_right);
-            
-           
-            // Insert on the ODD child
-            if (parity_left == 1) {
-                // Left is odd, insert there
-                DBGPRINT("[%*sDEBUG] Inserting inverter on LEFT (odd) child\n", depth*2, "");
-                Node* inv = insert_inverter_on_child(node, 0, Rb, r, c, Co, Cb, Tb);  // 0 = left
-                if (!process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb)) {
-                    depth--;
-                    return false;
-                }
-            } else {
-                // Right is odd, insert there
-                DBGPRINT("[%*sDEBUG] Inserting inverter on RIGHT (odd) child\n", depth*2, "");
-                Node* inv = insert_inverter_on_child(node, 1, Rb, r, c, Co, Cb, Tb);  // 1 = right
-                if (!process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb)) {
-                    depth--;
-                    return false;
-                }
-            }
+        if (L_max == 0.0) {
+            DBGPRINT("[%*sDEBUG] L_max == 0. Incrementing zero_insert_streak\n", depth*2, "");
 
-            
-            
-            // Recompute after fixing parity
-            parity_left = node->left()->parity();
-            parity_right = node->right()->parity();
-        }
-        
-        // Compute internal node state
-        double C_left = node->left()->c_upstream();
-        double C_right = node->right()->c_upstream();
-        double T_left = node->left()->t_upstream();
-        double T_right = node->right()->t_upstream();
-        
-        CT_down = C_left + C_right;
-        Tmax_down = (T_left > T_right) ? T_left : T_right;
-        parity_down = parity_left;  // Both same now
-        
-        node->set_parity(parity_down);
-        DBGPRINT("[%*sDEBUG] Result: parity=%d, CT_down=%.2le, Tmax_down=%.2le, pLen=%.2le\n", depth*2, "", parity_down, CT_down, Tmax_down,node->parent_len());
-        
-        // ===== ROOT CASE =====
-        if (!node->parent()) {
-            DBGPRINT("[%*sDEBUG] This is ROOT\n", depth*2, "");
-            
-            // Check driver capacity
-            double delay = Rb * (Co + CT_down) + Tmax_down;
-            DBGPRINT("[%*sDEBUG] Driver delay: %.2le (constraint: %.2le)\n", depth*2, "", delay, T_constraint);
-            
-            if (delay > T_constraint || parity_down == 1) {
-                DBGPRINT("[%*sDEBUG] ROOT needs fixing! Inserting on both branches.\n", depth*2, "");
-                
-                Node* inv_left = insert_inverter_on_child(node, 0, Rb, r, c, Co, Cb, Tb);
-                Node* inv_right = insert_inverter_on_child(node, 1, Rb, r, c, Co, Cb, Tb);
-                
-                if (!process_node(inv_left, T_constraint, Rb, r, c, Co, Cb, Tb)) {
-                    depth--;
-                    return false;
-                }
-                if (!process_node(inv_right, T_constraint, Rb, r, c, Co, Cb, Tb)) {
-                    depth--;
-                    return false;
-                }
+            if (zero_insert_streak > 1) {
+                DBGPRINT("[%*sERROR] Infeasible! Consecutive zero-length inverter insertions at LEAF %d\n", 
+                        depth*2, "", node->label());
+                depth--;
+                return false;  // Fail the testcase
             }
-            
-            node->set_k(1);  // Root always has k=1
-            depth--;
+        } else {
             zero_insert_streak = 0;
-            return true;
         }
+        DBGPRINT("[%*sDEBUG] INVERTER violates! Inserting SINGLE inverter.\n", depth*2, "");
         
-        // ===== NON-ROOT INTERNAL NODE =====
-        // Compute upstream state
-        double L_parent = node->parent_len();
-        double c_up = CT_down + c * L_parent;
-        double t_up = r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
-        node->set_c_upstream(c_up);
-        node->set_t_upstream(t_up);
         
-        // Check hypothetical
-        double t_hyp = Rb * (Co + c * L_parent + CT_down) + 
-                       r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
         
-        DBGPRINT("[%*sDEBUG] INTERNAL hypothetical delay: t_hyp=%.2le (constraint=%.2le)\n", depth*2, "", t_hyp, T_constraint);
+        Node* inv = insert_inverter(node, L_max, Rb, r, c, Co, Cb, Tb);
+        bool result = process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb);
+        depth--;
+        return result;
+    }
+    
+    depth--;
+    zero_insert_streak = 0;
+    return true;
+}
+
+bool process_internal(Node* node, double T_constraint, double Rb, double r, double c, double Co, double Cb, double Tb) {
+    double CT_down, Tmax_down;
+    int parity_down;
+    DBGPRINT("[%*sDEBUG] Processing INTERNAL node\n", depth*2, "");
+    // Process both children first
+    if (!process_node(node->left(), T_constraint, Rb, r, c, Co, Cb, Tb)) {
+        depth--;
+        return false;
+    }
+    if (!process_node(node->right(), T_constraint, Rb, r, c, Co, Cb, Tb)) {
+        depth--;
+        return false;
+    }
+    
+    // Check parity mismatch
+    int parity_left = node->left()->parity();
+    int parity_right = node->right()->parity();
+    
+    if (parity_left != parity_right) {
+        DBGPRINT("[%*sDEBUG] Parity mismatch @%p! left=%d, right=%d\n",depth*2, "",(void*)node, parity_left, parity_right);
         
-        if (t_hyp > T_constraint) {
-            double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, Rb, r, c, Co);
-            // if (L_max < 0.0) {
-            //     // INFEASIBLE: Cannot meet constraint even with inverter at node
-            //     DBGPRINT("[%*sERROR] Infeasible! L_max=%.2le < 0, constraint=%.2le cannot be met\n", 
-            //             depth*2, "", L_max, T_constraint);
-            //     depth--;
-            //     return false;  // Fail the testcase
-            // }
-            if (L_max < 0.0) {
-                // L_max= 0.0;
+        
+        // Insert on the ODD child
+        if (parity_left == 1) {
+            // Left is odd, insert there
+            DBGPRINT("[%*sDEBUG] Inserting inverter on LEFT (odd) child\n", depth*2, "");
+            Node* inv = insert_inverter_below(node, 0, Rb, r, c, Co, Cb, Tb);  // 0 = left
+            if (!process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                depth--;
                 return false;
             }
-            
-            if (L_max == 0.0) {
-                DBGPRINT("[%*sDEBUG] L_max == 0. Incrementing zero_insert_streak\n", depth*2, "");
+        } else {
+            // Right is odd, insert there
+            DBGPRINT("[%*sDEBUG] Inserting inverter on RIGHT (odd) child\n", depth*2, "");
+            Node* inv = insert_inverter_below(node, 1, Rb, r, c, Co, Cb, Tb);  // 1 = right
+            if (!process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                depth--;
+                return false;
+            }
+        }
 
-                zero_insert_streak++;
-                
-                if (zero_insert_streak > 1) {
-                    DBGPRINT("[%*sERROR] Infeasible! Consecutive zero-length inverter insertions at LEAF %d\n", 
-                            depth*2, "", node->label());
+        
+        
+        // Recompute after fixing parity
+        parity_left = node->left()->parity();
+        parity_right = node->right()->parity();
+    }
+    
+    // Compute internal node state
+    double C_left = node->left()->c_upstream();
+    double C_right = node->right()->c_upstream();
+    double T_left = node->left()->t_upstream();
+    double T_right = node->right()->t_upstream();
+    
+    CT_down = C_left + C_right;
+    Tmax_down = (T_left > T_right) ? T_left : T_right;
+    parity_down = parity_left;  // Both same now
+    
+    node->set_parity(parity_down);
+    DBGPRINT("[%*sDEBUG] Result: parity=%d, CT_down=%.2le, Tmax_down=%.2le, pLen=%.2le\n", depth*2, "", parity_down, CT_down, Tmax_down,node->parent_len());
+    
+    // ===== ROOT CASE =====
+    if (!node->parent()) {
+        DBGPRINT("[%*sDEBUG] This is ROOT\n", depth*2, "");
+        
+        // Check driver capacity
+        double delay = Rb * (Co + CT_down) + Tmax_down;
+        DBGPRINT("[%*sDEBUG] Driver delay: %.2le (constraint: %.2le)\n", depth*2, "", delay, T_constraint);
+        
+        if (delay > T_constraint || parity_down == 1) {
+            DBGPRINT("[%*sDEBUG] ROOT needs fixing! Inserting on both branches.\n", depth*2, "");
+            if (delay > T_constraint) {
+                DBGPRINT("[%*sDEBUG] ROOT delay violation: delay=%.2le > constraint=%.2le\n", depth*2, "", delay, T_constraint);
+            }
+            if (parity_down == 1) {
+                DBGPRINT("[%*sDEBUG] ROOT parity violation: parity=%d (needs to be even)\n", depth*2, "", parity_down);
+            }
+            Node* inv_left = insert_inverter_below(node, 0, Rb, r, c, Co, Cb, Tb);
+            Node* inv_right = insert_inverter_below(node, 1, Rb, r, c, Co, Cb, Tb);
+            
+            if (!process_node(inv_left, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                depth--;
+                return false;
+            }
+            if (!process_node(inv_right, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                depth--;
+                return false;
+            }
+            // if the parity was correct before, it will be incorrect now due to two inverters
+            if (parity_down == 0) {
+                // we need to insert another pair of inverters to fix parity
+                DBGPRINT("[%*sDEBUG] ROOT parity was even before, now odd due to two inverters. Inserting another pair.\n", depth*2, "");
+                Node* inv_left2 = insert_inverter_below(node, 0, Rb, r, c, Co, Cb, Tb);
+                Node* inv_right2 = insert_inverter_below(node, 1, Rb, r, c, Co, Cb, Tb);
+                if (!process_node(inv_left2, T_constraint, Rb, r, c, Co, Cb, Tb)) {
                     depth--;
-                    return false;  // Fail the testcase
+                    return false;
                 }
+                if (!process_node(inv_right2, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                    depth--;
+                    return false;
+                }
+            }
+        }
+        
+        node->set_k(1);  // Root always has k=1
+        depth--;
+        zero_insert_streak = 0;
+        return true;
+    }
+    
+    // ===== NON-ROOT INTERNAL NODE =====
+    // Compute upstream state
+    double L_parent = node->parent_len();
+    double c_up = CT_down + c * L_parent;
+    double t_up = r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
+    node->set_c_upstream(c_up);
+    node->set_t_upstream(t_up);
+    
+    // Check hypothetical
+    double t_hyp = Rb * (Co + c * L_parent + CT_down) + 
+                    r * L_parent * (c * L_parent / 2.0 + CT_down) + Tmax_down;
+    
+    DBGPRINT("[%*sDEBUG] INTERNAL hypothetical delay: t_hyp=%.2le (constraint=%.2le)\n", depth*2, "", t_hyp, T_constraint);
+    
+    if (t_hyp > T_constraint) {
+        double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, Rb, r, c, Co);
+        // if (L_max < 0.0) {
+        //     // INFEASIBLE: Cannot meet constraint even with inverter at node
+        //     DBGPRINT("[%*sERROR] Infeasible! L_max=%.2le < 0, constraint=%.2le cannot be met\n", 
+        //             depth*2, "", L_max, T_constraint);
+        //     depth--;
+        //     return false;  // Fail the testcase
+        // }
+        if (L_max < 0.0) {
+            // L_max= 0.0;
+            // 
+            Node* inv_left = insert_inverter_below(node, 0, Rb, r, c, Co, Cb, Tb);
+            Node* inv_right = insert_inverter_below(node, 1, Rb, r, c, Co, Cb, Tb);
+            int original_parity = node->parity();
+            if (!process_node(inv_left, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                depth--;
+                return false;
+            }
+            if (!process_node(inv_right, T_constraint, Rb, r, c, Co, Cb, Tb)) {
+                depth--;
+                return false;
+            }
+            node->set_parity(1 - original_parity);  // Flip parity due to two inverters
+            return process_node(node, T_constraint, Rb, r, c, Co, Cb, Tb);
+        }
+        else {
+            if (L_max == 0.0) {
+            DBGPRINT("[%*sDEBUG] L_max == 0. Incrementing zero_insert_streak\n", depth*2, "");
+
+            zero_insert_streak++;
+            
+            if (zero_insert_streak > 1) {
+                DBGPRINT("[%*sERROR] Infeasible! Consecutive zero-length inverter insertions at LEAF %d\n", 
+                        depth*2, "", node->label());
+                depth--;
+                return false;  // Fail the testcase
+            }
             } else {
                 zero_insert_streak = 0;
             }
-            
+        
             DBGPRINT("[%*sDEBUG] INTERNAL violates! parity=%d, will insert %s\n", depth*2, "", parity_down, (parity_down == 1) ? "SINGLE" : "REPEATER");
             
             Node* inv = insert_inverter(node, L_max, Rb, r, c, Co, Cb, Tb);
             bool result = process_node(inv, T_constraint, Rb, r, c, Co, Cb, Tb);
             depth--;
             return result;
-        
         }
         
-        depth--;
-        zero_insert_streak = 0;
-        return true;
+    
+    }
+    
+    depth--;
+    zero_insert_streak = 0;
+    return true;
+}
+
+bool process_node(Node* node, double T_constraint, double Rb, double r, double c, double Co, double Cb, double Tb) {
+    
+    if (!node) return true;
+    depth++;
+    
+    // show the zero insert streak for debugging
+    DBGPRINT( "[%*sDEBUG] process_node: node=%p, zero_insert_streak=%d\n", depth*2, "", (void*)node, zero_insert_streak);
+    // ===== LEAF NODE =====
+    if (node->leaf()) {
+        return process_leaf(node, T_constraint, Rb, r, c, Co, Cb, Tb);
+    }
+    
+    // ===== INVERTER NODE =====
+    else if (node->k() > 0) {
+        return process_inv(node, T_constraint, Rb, r, c, Co, Cb, Tb);
+    }
+    
+    // ===== INTERNAL NODE =====
+    else {
+        return process_internal(node, T_constraint, Rb, r, c, Co, Cb, Tb);
     }
 }
 
@@ -758,7 +841,25 @@ struct InverterStats {
                       root_k(0), inverters_valid(true), noninverting_sinks(0),
                       stage_sinks(0), safe_stage_sinks(0), inverter_count(0) {}
 };
-
+void clear_computed_fields(Node* root) {
+    if (!root) return;
+    
+    std::stack<Node*> stack;
+    stack.push(root);
+    
+    while (!stack.empty()) {
+        Node* node = stack.top();
+        stack.pop();
+        // printf("Clearing node %p\n", (void*)node);
+        node->set_c_prime(0.0);      // Reset c_prime
+        node->set_c_downstream(0.0); // Reset c_downstream
+        
+        if (!node->leaf()) {
+            if (node->left()) stack.push(node->left());
+            if (node->right()) stack.push(node->right());
+        }
+    }
+}
 Node* buildTreeWithInverters(FILE* in) {
     char buf[256];
     std::stack<Node*> st;
@@ -800,7 +901,116 @@ Node* buildTreeWithInverters(FILE* in) {
     root->set_parent(nullptr, 0.0);
     return root;
 }
+// Compute downstream capacitance recursively (no pre-computed fields needed)
+double compute_subtree_capacitance(Node* node, double c, double Cb) {
+    if (!node) return 0.0;
+    
+    if (node->leaf()) {
+        return node->cap();
+    }
+    
+    if (node->k() > 0) {
+        // Inverter node - return its output capacitance
+        return Cb * node->k();
+    }
+    
+    // Internal node - sum children + wire capacitance
+    double C_total = 0.0;
+    
+    if (node->left()) {
+        double C_left_subtree = compute_subtree_capacitance(node->left(), c, Cb);
+        C_total += C_left_subtree + c * node->left_len();
+    }
+    
+    if (node->right()) {
+        double C_right_subtree = compute_subtree_capacitance(node->right(), c, Cb);
+        C_total += C_right_subtree + c * node->right_len();
+    }
+    
+    return C_total;
+}
 
+// Verify stage delays recursively without pre-computed fields
+void verify_stage_delays_recursive(Node* node, double accumulated_delay, 
+                                   double T_constraint, double r, double c, 
+                                   double Tb, double Cb,
+                                   int& stage_sinks, int& safe_stage_sinks,
+                                   int& violations,
+                                   int depthed = 0) {
+    if (!node) return;
+    
+    // Check if this is a stage endpoint (inverter or sink)
+    if (node->k() > 0 && node->parent()) {
+        stage_sinks++;
+        if (accumulated_delay <= T_constraint) {
+            safe_stage_sinks++;
+        } else {
+            printf("VIOLATION at depthed %d: Inverter (k=%d)\n", depthed, node->k());
+            printf("  Stage delay: %.2le > constraint: %.2le (excess: %.2le)\n", 
+                   accumulated_delay, T_constraint, accumulated_delay - T_constraint);
+            // add even more context
+            // check if left child is leaf
+            if (node->left() && node->left()->leaf()) {
+                printf("    Left child is leaf %d\n", node->left()->label());
+            }
+            // check if right child is leaf
+            if (node->right() && node->right()->leaf()) {
+                printf("    Right child is leaf %d\n", node->right()->label());
+            }
+            // check lengths above and below
+            if (node->parent()) {
+                printf("    Parent length: %.2le\n", node->parent_len());
+                //print the node address of the parent
+                printf("    Parent node address: %p\n", (void*)node->parent());
+            }
+            if (node->left()) {
+                printf("    Left edge length: %.2le\n", node->left_len());
+            }
+            if (node->right()) {
+                printf("    Right edge length: %.2le\n", node->right_len());
+            }
+
+            violations++;
+        }
+        
+        if (!node->leaf() && node->left()) {
+            double C_down = compute_subtree_capacitance(node->left(), c, Cb);
+            double next_delay = Tb + r * node->left_len() * C_down;
+            verify_stage_delays_recursive(node->left(), next_delay, T_constraint, 
+                                         r, c, Tb, Cb, stage_sinks, safe_stage_sinks, 
+                                         violations, depthed + 1);
+        }
+    }
+    else if (node->leaf()) {
+        stage_sinks++;
+        if (accumulated_delay <= T_constraint) {
+            safe_stage_sinks++;
+        } else {
+            printf("VIOLATION at depthed %d: Sink %d\n", depthed, node->label());
+            printf("  Stage delay: %.2le > constraint: %.2le (excess: %.2le)\n", 
+                   accumulated_delay, T_constraint, accumulated_delay - T_constraint);
+            violations++;
+        }
+    }
+    else {
+        // Continue through internal node
+        if (node->left()) {
+            double C_down = compute_subtree_capacitance(node->left(), c, Cb);
+            double edge_delay = r * node->left_len() * C_down;
+            verify_stage_delays_recursive(node->left(), accumulated_delay + edge_delay,
+                                         T_constraint, r, c, Tb, Cb, 
+                                         stage_sinks, safe_stage_sinks, violations, depthed + 1);
+        }
+        
+        if (node->right()) {
+            double C_down = compute_subtree_capacitance(node->right(), c, Cb);
+            double edge_delay = r * node->right_len() * C_down;
+            verify_stage_delays_recursive(node->right(), accumulated_delay + edge_delay,
+                                         T_constraint, r, c, Tb, Cb,
+                                         stage_sinks, safe_stage_sinks, violations, depthed + 1);
+        }
+    }
+}
 void verify_stage_delays(Node* root, double T_constraint, double Rb, double re, 
                          double Tb, int& stage_sinks, int& safe_stage_sinks) {
     if (!root) return;
@@ -975,7 +1185,7 @@ void count_stage_sinks(Node* node, double T_constraint, int& stage_sinks, int& s
 }
 
 // Main verification function
-void verify_solution(Node* original_root, Node* modified_root,Node* ttopoRoot,double Rb,double r ,double Tb, double T_constraint, 
+void verify_solution(Node* original_root, Node* modified_root,Node* ttopoRoot,double Rb,double r ,double c,double Co, double Cb,double Tb, double T_constraint, 
                      const char* test_name) {
     InverterStats stats;
     
@@ -1017,9 +1227,21 @@ void verify_solution(Node* original_root, Node* modified_root,Node* ttopoRoot,do
     
     // // Count stage sinks
     // count_stage_sinks(modified_root, T_constraint, stats.stage_sinks, stats.safe_stage_sinks);
-
     stats.stage_sinks = 0;
-    verify_stage_delays(modified_root, T_constraint, Rb, r, Tb, stats.stage_sinks, stats.safe_stage_sinks);
+    stats.safe_stage_sinks = 0;
+    int violations = 0;
+    
+    // Start from root with initial driver delay
+    double C_root = compute_subtree_capacitance(modified_root, c, Cb);
+    double initial_delay = Rb * (Co + C_root);
+    
+    verify_stage_delays_recursive(modified_root, initial_delay, T_constraint, 
+                                 r, c, Tb, Cb, stats.stage_sinks, 
+                                 stats.safe_stage_sinks, violations);
+    
+    printf("Total violations: %d\n", violations);
+    // stats.stage_sinks = 0;
+    // verify_stage_delays(modified_root, T_constraint, Rb, r, Tb, stats.stage_sinks, stats.safe_stage_sinks);
     
     // Print results
     printf( "\n=== VERIFICATION RESULTS for %s ===\n", test_name);
