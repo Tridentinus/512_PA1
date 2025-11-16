@@ -83,8 +83,7 @@ void build_c_prime_iter(Node * root, double Co, double c, bool is_root) {
 
     if (is_root) {
         root->add_c_prime(Co);
-    }
-    
+    } 
     while (!stack.empty()) {
         Node* node = stack.top();
         stack.pop();
@@ -291,39 +290,6 @@ std::pair<Node*, Node*> insert_repeater(Node* node, double L_max, double Rb, dou
     return {inv1, inv2};
 }
 
-// Node* insert_inverter_on_child(Node* parent, int child_side,double Rb, double r, double c, double Co, double Cb, double Tb) {
-//     Node* child;
-//     double edge_len;
-    
-//     if (child_side == 0) {
-//         child = parent->left();
-//         edge_len = parent->left_len();
-//     } else {
-//         child = parent->right();
-//         edge_len = parent->right_len();
-//     }
-    
-// //   DBGPRINT( "    >>> insert_inverter_below: parent=%p, child_side=%s, child=%p, edge_len=%.2le\n", (void*)parent, child_side == 0 ? "LEFT" : "RIGHT", (void*)child, edge_len);
-    
-//     Node* inv_node = new Node(0.0, -1.0, child, nullptr);
-//     inv_node->set_k(1);
-//     inv_node->set_parent(parent, edge_len);
-    
-// //   DBGPRINT( "    >>> Created inv_node=%p at TOP of branch (zero distance from child)\n", (void*)inv_node);
-    
-//     child->set_parent(inv_node, 0.0);
-    
-//     // Update parent's child pointer
-//     if (child_side == 0) {
-//         parent->set_left(inv_node);
-//     } else {
-//         parent->set_right(inv_node);
-//     }
-    
-// //   DBGPRINT( "    >>> insert_inverter_below DONE, returning inv_node=%p\n", (void*)inv_node);
-//     return inv_node;
-// }
-
 Node* insert_inverter_below(Node* parent, int child_side,double Rb, double r, double c, double Co, double Cb, double Tb) {
     Node* child;
     double edge_len;
@@ -414,29 +380,8 @@ bool process_leaf(Node* node, double T_constraint, double Rb, double r, double c
         if (t_hyp > T_constraint) {
             DBGPRINT("[%*sDEBUG] LEAF violates! Inserting inverter.\n", depth*2, "");
             double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, Rb, r, c, Co);
-            // if (L_max < 0.0) {
-            //     // INFEASIBLE: Cannot meet constraint even with inverter at node
-            //     DBGPRINT("[%*sERROR] Infeasible! L_max=%.2le < 0, constraint=%.2le cannot be met\n", 
-            //             depth*2, "", L_max, T_constraint);
-            //     depth--;
-            //     return false;  // Fail the testcase
-            // }
-
             if (L_max < 0.0) {
-                // L_max= 0.0;
-                // // delay up = intrinsic delay of inverter (Tb = Rb * C_out) + delay from wire resistance and capacitance to parent (c_up = r * parentLen * (c * parentLen/2 + Co))
-                // double delay_up = Tb + r * node->parent_len() * (c * node->parent_len()/2 + Co);
-                // DBGPRINT("[%*sDEBUG] L_max < 0, setting L_max=0. Calculated delay_up=%.2le\n", depth*2, "", delay_up);
-                // if (Tb + r * node->parent_len() * (c * node->parent_len()/2 + Co) > T_constraint) {
-                    
-                //     DBGPRINT("[%*sERROR] Infeasible! Even with inverter at LEAF %d, delay_up=%.2le exceeds constraint=%.2le\n", 
-                //             depth*2, "", node->label(), delay_up, T_constraint);
-                //     depth--;
-                //     return false;  // Fail the testcase
-                // }
-                // zero_insert_streak++;
                 return false;
-
             }
 
             if (L_max == 0.0) {
@@ -502,16 +447,9 @@ bool process_inv(Node* node, double T_constraint, double Rb, double r, double c,
     DBGPRINT("[%*sDEBUG] INVERTER hypothetical delay: t_hyp=%.2le (constraint=%.2le)\n", depth*2, "", t_hyp, T_constraint);
     if (t_hyp > T_constraint) {
         double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, Rb, r, c, Co);
-        // if (L_max < 0.0) {
-        //     // INFEASIBLE: Cannot meet constraint even with inverter at node
-        //     DBGPRINT("[%*sERROR] Infeasible! L_max=%.2le < 0, constraint=%.2le cannot be met\n", 
-        //             depth*2, "", L_max, T_constraint);
-        //     depth--;
-        //     return false;  // Fail the testcase
-        // }
+
         if (L_max < 0.0) {
-            // L_max= 0.0;
-            // zero_insert_streak++;
+           
             return false;
         }
         if (L_max == 0.0) {
@@ -668,16 +606,7 @@ bool process_internal(Node* node, double T_constraint, double Rb, double r, doub
     
     if (t_hyp > T_constraint) {
         double L_max = compute_max_distance_hyp(CT_down, Tmax_down, T_constraint, Rb, r, c, Co);
-        // if (L_max < 0.0) {
-        //     // INFEASIBLE: Cannot meet constraint even with inverter at node
-        //     DBGPRINT("[%*sERROR] Infeasible! L_max=%.2le < 0, constraint=%.2le cannot be met\n", 
-        //             depth*2, "", L_max, T_constraint);
-        //     depth--;
-        //     return false;  // Fail the testcase
-        // }
         if (L_max < 0.0) {
-            // L_max= 0.0;
-            // 
             Node* inv_left = insert_inverter_below(node, 0, Rb, r, c, Co, Cb, Tb);
             Node* inv_right = insert_inverter_below(node, 1, Rb, r, c, Co, Cb, Tb);
             int original_parity = node->parity();
