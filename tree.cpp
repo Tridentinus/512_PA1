@@ -75,7 +75,7 @@ void build_c_prime(Node * node, double Co, double c,bool is_root) {
     }
 }
 
-void build_c_prime_dp(Node * root, double Co, double c, bool is_root) {
+void build_c_prime_iter(Node * root, double Co, double c, bool is_root) {
     if (!root) return;
     
     std::stack<Node*> stack;
@@ -121,7 +121,7 @@ double recur_downstream(Node * node) {
   return S;
 }
 
-void dp_downstream(Node * root) {
+void iter_downstream(Node * root) {
   if (!root) return;
   std::stack<Node*> stack,post;
 
@@ -172,7 +172,7 @@ void recur_delay(Node * node, double pDelay, double pResistance,double r,FILE*ou
   }
 }
 
-void dp_delay (Node * root, double Rb,double re, FILE * out) {
+void iter_delay (Node * root, double Rb,double re, FILE * out) {
   if(!root) return;
 
   const double driver = Rb * root->c_downstream();

@@ -67,9 +67,9 @@ int main(int argc, char * argv[]) {
     fprintf(stderr, "Wire params: r=%.2le, c=%.2le\n", r, c);
     fclose(invIn);
     fclose(wireIn);
-    build_c_prime_dp(root, C_out, c, /*is_root=*/true);
-    dp_downstream(root);
-    dp_delay(root, R_inv, r, elmoreOut);
+    build_c_prime_iter(root, C_out, c, /*is_root=*/true);
+    iter_downstream(root);
+    iter_delay(root, R_inv, r, elmoreOut);
     fclose(elmoreOut);
 
     
@@ -84,8 +84,8 @@ int main(int argc, char * argv[]) {
             // ✅ ADD THESE LINES to recompute capacitances after tree modification:
         
         clear_computed_fields(root);
-        build_c_prime_dp(root, C_out, c, /*is_root=*/true);
-        dp_downstream(root);
+        build_c_prime_iter(root, C_out, c, /*is_root=*/true);
+        iter_downstream(root);
 
 
         postorder_with_inverters(root,ttopoOut);
@@ -101,8 +101,8 @@ int main(int argc, char * argv[]) {
         //     return EXIT_FAILURE;
         // }
         // Node* ttopo_root = buildTreeWithInverters(ttopoIn);
-        // build_c_prime_dp(ttopo_root, C_out, c, /*is_root=*/true);
-        // dp_downstream(ttopo_root);
+        // build_c_prime_iter(ttopo_root, C_out, c, /*is_root=*/true);
+        // iter_downstream(ttopo_root);
         // fclose(ttopoIn);
 
         // verify_solution(original_root, root, ttopo_root, R_inv,r,c,C_out,C_in,Tb,atof(argv[1]), argv[4]);
