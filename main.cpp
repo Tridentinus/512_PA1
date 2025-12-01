@@ -63,8 +63,8 @@ int main(int argc, char * argv[]) {
     if (fgets(buf, sizeof(buf), wireIn)) {
         sscanf(buf, "%le %le\n", &r, &c);
     }
-    fprintf(stderr, "Inverter params: C_in=%.2le, C_out=%.2le, R_inv=%.2le\n", C_in, C_out, R_inv);
-    fprintf(stderr, "Wire params: r=%.2le, c=%.2le\n", r, c);
+    // fprintf(stderr, "Inverter params: C_in=%.2le, C_out=%.2le, R_inv=%.2le\n", C_in, C_out, R_inv);
+    // fprintf(stderr, "Wire params: r=%.2le, c=%.2le\n", r, c);
     fclose(invIn);
     fclose(wireIn);
     build_c_prime_iter(root, C_out, c, /*is_root=*/true);
@@ -74,14 +74,13 @@ int main(int argc, char * argv[]) {
 
     
     double Tb = R_inv * C_out;
-    fprintf(stderr, "Inverter intrinsic delay Tb=Rb*C_out=%.2le\n", Tb);
+    // fprintf(stderr, "Inverter intrinsic delay Tb=Rb*C_out=%.2le\n", Tb);
 
     try {
         bool feasible = inverter_insertion(root, atof(argv[1]), R_inv, r, c, C_out, C_in, Tb);
-        fprintf(stderr, "Inverter insertion %sfeasible under T=%.3f s\n", 
-                feasible ? "" : "not ", atof(argv[1]));
-        printf("Writing modified tree to %s and %s\n", argv[7], argv[8]);
-            // ✅ ADD THESE LINES to recompute capacitances after tree modification:
+        // fprintf(stderr, "Inverter insertion %sfeasible under T=%.3f s\n", 
+        //         feasible ? "" : "not ", atof(argv[1]));
+        // printf("Writing modified tree to %s and %s\n", argv[7], argv[8]);
         
         clear_computed_fields(root);
         build_c_prime_iter(root, C_out, c, /*is_root=*/true);

@@ -58,7 +58,7 @@ OUT_TTOPO := out/$(NAME).ttopo
 OUT_BTOPO := out/$(NAME).btopo
 LOG := out/$(NAME).valgrind.log
 CALL := out/$(NAME).callgrind.out
-
+MASS := out/$(NAME).massif.out
 run: all
 	@echo "Running $(TARGET) with TIME=$(TIME), FAKE=$(FAKE), NAME=$(NAME)"
 	mkdir -p out
@@ -74,6 +74,7 @@ run-valgrind: all
 # 	# Run callgrind for profiling (optional)
 # 	valgrind --tool=callgrind --callgrind-out-file=$(CALL) ./$(TARGET) $(TIME) $(INV) $(WIRE) $(INPUT) $(OUT_PRE) $(OUT_ELM) $(OUT_TTOPO) $(OUT_BTOPO)
 	@echo "Valgrind memcheck log: $(LOG)"
+	valgrind --tool=massif --stacks=yes --massif-out-file=$(MASS) ./$(TARGET) $(TIME) $(INV) $(WIRE) $(INPUT) $(OUT_PRE) $(OUT_ELM) $(OUT_TTOPO) $(OUT_BTOPO)
 # 	@echo "Callgrind output: $(CALL)"
 
 run-gdb: all
