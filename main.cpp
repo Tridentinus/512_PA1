@@ -82,6 +82,8 @@ int main(int argc, char * argv[]) {
         //         feasible ? "" : "not ", atof(argv[1]));
         // printf("Writing modified tree to %s and %s\n", argv[7], argv[8]);
         
+        //assure root is valid
+        if (!feasible) root->set_k(1);
         clear_computed_fields(root);
         build_c_prime_iter(root, C_out, c, /*is_root=*/true);
         iter_downstream(root);
